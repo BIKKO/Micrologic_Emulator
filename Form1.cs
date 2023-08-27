@@ -7,12 +7,11 @@ namespace ModbasServer
         bool start_stop = false;
         ModbusServer server;
 
-        
+
 
         public Form1()
         {
             InitializeComponent();
-            Information.Text = "Статус: не активен";
         }
 
         private void transfer(string Text)
@@ -26,8 +25,8 @@ namespace ModbasServer
                 short temp = 0;
                 for (int i = 0; i < line.Length;)
                 {
-                    if (line[i] != 0) 
-                    {   
+                    if (line[i] != 0)
+                    {
                         temp = (short)line[i];
                         i++;
                     }
@@ -39,8 +38,7 @@ namespace ModbasServer
                         count++;
                     }
                 }
-
-                //progressBar1.Value += 1;
+                //progressBar1.Value = 1;
             }
         }
 
@@ -50,6 +48,7 @@ namespace ModbasServer
             ofd.ShowDialog();
             //MessageBox.Show(ofd.FileName); 
             Location.Text = ofd.FileName;
+            //progressBar1.Maximum = Location.Text.Length;
         }
 
         private void StartStop_Click(object sender, EventArgs e)
@@ -62,17 +61,19 @@ namespace ModbasServer
                         {
                             server.StopListening();
                             server = null;
-                            Information.Text = "Статус: не активен";
+                            StartStop.BackColor = Color.Green;
+                            StartStop.Text = "Старт";
                             start_stop = !start_stop;
                             break;
                         }
                     case false:
                         {
+                            StartStop.BackColor = Color.Red;
+                            StartStop.Text = "Стоп";
                             server = new ModbusServer();
                             server.Listen();/*
                             ModbusServer.HoldingRegisters reg = server.holdingRegisters;
                             reg[1] = [4324, 234234, 223];*/
-                            Information.Text = "Статус: активен";
                             start_stop = !start_stop;
                             var trans = new Task(() =>
                             {

@@ -29,7 +29,6 @@
         private void InitializeComponent()
         {
             panel1 = new Panel();
-            Information = new Label();
             progressBar1 = new ProgressBar();
             review = new Button();
             Location = new TextBox();
@@ -39,7 +38,6 @@
             // 
             // panel1
             // 
-            panel1.Controls.Add(Information);
             panel1.Controls.Add(progressBar1);
             panel1.Controls.Add(review);
             panel1.Controls.Add(Location);
@@ -49,15 +47,6 @@
             panel1.Name = "panel1";
             panel1.Size = new Size(554, 288);
             panel1.TabIndex = 0;
-            // 
-            // Information
-            // 
-            Information.AutoSize = true;
-            Information.Location = new Point(68, 61);
-            Information.Name = "Information";
-            Information.Size = new Size(55, 20);
-            Information.TabIndex = 4;
-            Information.Text = "Статус:";
             // 
             // progressBar1
             // 
@@ -85,12 +74,13 @@
             // 
             // StartStop
             // 
-            StartStop.Location = new Point(302, 61);
+            StartStop.BackColor = Color.Green;
+            StartStop.Location = new Point(68, 33);
             StartStop.Name = "StartStop";
-            StartStop.Size = new Size(211, 68);
+            StartStop.Size = new Size(445, 118);
             StartStop.TabIndex = 0;
-            StartStop.Text = "Старт/Стоп";
-            StartStop.UseVisualStyleBackColor = true;
+            StartStop.Text = "Старт";
+            StartStop.UseVisualStyleBackColor = false;
             StartStop.Click += StartStop_Click;
             // 
             // Form1
@@ -111,7 +101,6 @@
         private Panel panel1;
         private Button StartStop;
         private TextBox Location;
-        private Label Information;
         private ProgressBar progressBar1;
         private Button review;
     }
