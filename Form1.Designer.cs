@@ -55,9 +55,9 @@
             Information.AutoSize = true;
             Information.Location = new Point(68, 61);
             Information.Name = "Information";
-            Information.Size = new Size(50, 20);
+            Information.Size = new Size(55, 20);
             Information.TabIndex = 4;
-            Information.Text = "label1";
+            Information.Text = "Статус:";
             // 
             // progressBar1
             // 
