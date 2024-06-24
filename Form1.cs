@@ -22,6 +22,7 @@ namespace ModbasServer
         private int RangAdr;
         private int[] adres = new int[] { 1000, 600, 1200, 2000, 7200, 1300, 7000, 6800 };
         private Dictionary<string, int> Adreses;
+        private Dictionary<string, ushort[]> Data;
         private string[] TextRangs;
         private byte[] IP;
         private int Port;
@@ -114,6 +115,7 @@ namespace ModbasServer
         /// <param name="e"></param>
         private void review_Click(object sender, EventArgs e)
         {
+            openFileDialog1.Filter = "My files (*.LDF)|*.ldf|txt files (*.txt)|*.txt|All files (*.*)|*.*";
             if (openFileDialog1.ShowDialog() == DialogResult.OK)
                 Location.Text = openFileDialog1.FileName;
         }
@@ -155,62 +157,66 @@ namespace ModbasServer
                         }
                     case true:
                         {
-                            mb_tcp_server = ModbusTcpSlave.CreateTcp(Slave, new TcpListener(new IPAddress(IP), Port));
-                            mb_tcp_server.DataStore = DataValue;
-                            mb_tcp_server.ModbusSlaveRequestReceived += Mb_tcp_server_ModbusSlaveRequestReceived;
-
-                            start_stop = !start_stop;
-                            StartStop.BackColor = Color.Red;
-                            StartStop.Text = "Стоп";
-                            label1.Text = string.Join(".",IP)=="0.0.0.0"?"127.0.0.1:"+Port: string.Join(".", IP)+':'+Port;
-
-
-
-                            if (ListenThred == null)
-                                ListenThred = new Thread(() =>
-                                {
-                                    try
-                                    {
-                                        mb_tcp_server.ListenAsync();
-                                    }
-                                    catch (ThreadAbortException ex)
-                                    {
-                                        BeginInvoke(new MethodInvoker(() => { listlog.Items.Add("Thread(th_0) is aborted " + ex.ExceptionState); }));
-                                    }
-                                })
-                                {
-                                    IsBackground = true,
-                                };
-                            ListenThred.Name = "Listen";
-                            ListenThred.SetApartmentState(ApartmentState.STA);
-
-                            if (GenerateData == null)
-                                GenerateData = new Thread(() =>
-                                {
-                                    try
-                                    {
-                                        SetData();
-                                    }
-                                    catch (ThreadAbortException ex)
-                                    {
-                                        BeginInvoke(new MethodInvoker(() => { listlog.Items.Add("Thread(th_1) is aborted " + ex.ExceptionState); }));
-                                    }
-                                })
-                                {
-                                    IsBackground = true,
-                                };
-
-                            GenerateData.Name = "SetData";
-
-                            ListenThred.Start();
-                            GenerateData.Start();
-
-                            listlog.Items.Add("Server started");
                             if (Location.Text != "")
                             {
-                                if (Location.Text.Contains("lbf"))
+                                mb_tcp_server = ModbusTcpSlave.CreateTcp(Slave, new TcpListener(new IPAddress(IP), Port));
+                                mb_tcp_server.DataStore = DataValue;
+                                mb_tcp_server.ModbusSlaveRequestReceived += Mb_tcp_server_ModbusSlaveRequestReceived;
+
+                                start_stop = !start_stop;
+                                StartStop.BackColor = Color.Red;
+                                StartStop.Text = "Стоп";
+                                label1.Text = string.Join(".",IP)=="0.0.0.0"?"127.0.0.1:"+Port: string.Join(".", IP)+':'+Port;
+
+
+
+                                if (ListenThred == null)
+                                    ListenThred = new Thread(() =>
+                                    {
+                                        try
+                                        {
+                                            mb_tcp_server.ListenAsync();
+                                        }
+                                        catch (ThreadAbortException ex)
+                                        {
+                                            BeginInvoke(new MethodInvoker(() => { listlog.Items.Add("Thread(th_0) is aborted " + ex.ExceptionState); }));
+                                        }
+                                    })
+                                    {
+                                        IsBackground = true,
+                                    };
+                                ListenThred.Name = "Listen";
+                                ListenThred.SetApartmentState(ApartmentState.STA);
+
+                                if (GenerateData == null)
+                                    GenerateData = new Thread(() =>
+                                    {
+                                        try
+                                        {
+                                            SetData();
+                                        }
+                                        catch (ThreadAbortException ex)
+                                        {
+                                            BeginInvoke(new MethodInvoker(() => { listlog.Items.Add("Thread(th_1) is aborted " + ex.ExceptionState); }));
+                                        }
+                                    })
+                                    {
+                                        IsBackground = true,
+                                    };
+
+                                GenerateData.Name = "SetData";
+
+                                ListenThred.Start();
+                                GenerateData.Start();
+
+                                listlog.Items.Add("Server started");
+                                if (Location.Text.Contains("ldf"))
                                 {
-                                    if (TextRangs == null) TextRangs = CreateFile.Load(Location.Text, Type.RANG);
+                                    if (TextRangs == null)
+                                    {
+                                        Data = CreateFile.GetData(Location.Text);
+                                        TextRangs = CreateFile.Load(Location.Text, Type.RANG);
+                                    }
                                     else if (TextRangs != CreateFile.Load(Location.Text, Type.RANG)) TextRangs = CreateFile.Load(Location.Text, Type.RANG);
                                 }
                                 else
@@ -380,15 +386,24 @@ namespace ModbasServer
             saveFileDialog1.InitialDirectory = Location.Text;
             saveFileDialog1.RestoreDirectory = true;
             saveFileDialog1.DefaultExt = "RangsSave";
-            saveFileDialog1.Filter = "txt files (*.txt) | *.txt";
+            saveFileDialog1.Filter = "My files (*.ldf)|*.ldf|txt files (*.txt)|*.txt";
             if (saveFileDialog1.ShowDialog() == DialogResult.OK)
             {
                 Stream file = saveFileDialog1.OpenFile();
                 StreamWriter sw = new StreamWriter(file);
+                if (saveFileDialog1.FileName.Contains(".ldf"))
+                {
+                    sw.WriteLine(CreateFile.Create(TextRangs, CreateFile.CreateDATA(Data)));
+                    sw.Close();
+                    file.Close();
+                    return;
+                }
                 foreach (string rang in TextRangs)
                     sw.WriteLine(rang);
                 sw.Close();
                 file.Close();
+                file.Dispose();
+                sw.Dispose();
             }
         }
 

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace ModbasServer
 {
@@ -16,6 +17,8 @@ namespace ModbasServer
 
     public static class CreateFile
     {
+        private static readonly string[] _type = new string[] { "[RANGS]", "[TEGS]", "[DATA]" };
+
         /// <summary>
         /// Чтение файла
         /// </summary>
@@ -25,59 +28,34 @@ namespace ModbasServer
             if (!path.Contains(".ldf")) return null;
             string[] readFile = File.ReadAllLines(path);
 
-            int index = 1;
-
-            string[] rangs; // Считыване рангов
-            int count = int.Parse(readFile[0].Replace("[RANGS]:", ""));
-            rangs = new string[count];
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < readFile.Length; i++)
             {
-                rangs[i] = readFile[index];
-                index++;
+                if (readFile[i].Contains(_type[(int)type_ret])) return GetDataOfFile(readFile, i);
             }
 
-            //Console.WriteLine(string.Join("\n", rangs));
-            //Console.WriteLine();
-            string[] tegs = null;
-            try
-            {
-                count = int.Parse(readFile[index].Replace("[TEGS]:", "")); // Считывание тегов
-                if (count != 0)
-                {
-                    tegs = new string[count];
-                    index++;
-                    for (int i = 0; i < count; i++)
-                    {
-                        tegs[i] = readFile[index];
-                        index++;
-                    }
-                    // пока ничего
-                    // index += count+1;
-                    //Console.WriteLine(string.Join("\n", tegs));
-                    //Console.WriteLine();
-                }
-                else index++;
-            }
-            catch{}
-
-            count = int.Parse(readFile[index].Replace("[DATA]:", "")); // Считывание данных
-            index++;
-            string[] data = new string[count];
-            for (int i = 0; i < count; i++)
-            {
-                data[i] = readFile[index];
-                index++;
-            }
-            //Console.WriteLine(string.Join("\n", data));
-            switch (type_ret)
-            {
-                case Type.RANG: return rangs;
-                case Type.TEGS: return tegs;
-                case Type.DATA: return data;
-                    default: return null;
-            }
+            return null;
         }
 
+        /// <summary>
+        /// Выделение необходимых строк из файла
+        /// </summary>
+        /// <param name="_load">Массив считанных строк</param>
+        /// <param name="_index">Индекст старта чтения</param>
+        /// <returns>Массив нужных строк</returns>
+        private static string[] GetDataOfFile(string[] _load, int _index)
+        {
+            int index = _index + 1;
+            int count = int.Parse(new Regex(@"\A\[\w*\]:").Replace(_load[_index], ""));
+            if (!Convert.ToBoolean(count)) return null;
+            string[] _out = new string[count];
+            for (int i = 0; i < count; i++)
+            {
+                if (new Regex(@"\A\[/\w*\]").IsMatch(_load[index])) return _out;
+                _out[i] = new Regex(@"\ASOR\s|\sEOR\z").Replace(_load[index], "");
+                index++;
+            }
+            return _out;
+        }
         /// <summary>
         /// Создание файла
         /// </summary>
@@ -86,26 +64,11 @@ namespace ModbasServer
         /// <returns>Строка, с готовым форматом для записи</returns>
         public static string Create(string[] _Rangs, string[] _Data)
         {
-            string Out = $"[RANGS]:{_Rangs.Length}\n";
-            Out += string.Join("\n", _Rangs);
-            Out += $"\n[TEGS]:0\n[DATA]:{_Data.Length}\n";
+            string Out = $"[RANGS]:{_Rangs.Length}\nSOR";
+            Out += string.Join("EOR\nSOR", _Rangs) + "EOR";
+            Out += $"\n[/RANGS]\n[TEGS]:0\n[/TEGS]\n[DATA]:{_Data.Length}\n";
             Out += string.Join("\n", _Data);
-            return Out;
-        }
-
-        /// <summary>
-        /// Создание файла без тегов
-        /// </summary>
-        /// <param name="_Rangs">Текст рангов</param>
-        /// <param name="_Data">Сфомированные данные</param>
-        /// <returns>Строка, с готовым форматом для записи</returns>
-        public static string CreateNoTEGS(string[] _Rangs, string[] _Data)
-        {
-            string Out = $"[RANGS]:{_Rangs.Length}\n";
-            Out += string.Join("\n", _Rangs);
-            Out += $"\n[DATA]:{_Data.Length}\n";
-            Out += string.Join("\n", _Data);
-            return Out;
+            return Out + "\n[/DATA]";
         }
 
         /// <summary>
@@ -117,13 +80,28 @@ namespace ModbasServer
         /// <returns>Строка, с готовым форматом для записи</returns>
         public static string Create(string[] _Rangs, string[] _Data, string[] _Tegs)
         {
-            string Out = $"[RANGS]:{_Rangs.Length}\n";
-            Out += string.Join("\n", _Rangs);
-            Out += $"\n[TEGS]:{_Tegs.Length}\n";
+            string Out = $"[RANGS]:{_Rangs.Length}\nSOR";
+            Out += string.Join("EOR\nSOR", _Rangs) + "EOR";
+            Out += $"\n[/RANGS]\n[TEGS]:{_Tegs.Length}\n";
             Out += string.Join("\n", _Tegs);
-            Out += $"\n[DATA]:{_Data.Length}\n";
+            Out += $"\n[/TEGS]\n[DATA]:{_Data.Length}\n";
             Out += string.Join("\n", _Data);
-            return Out;
+            return Out + "\n[/DATA]";
+        }
+
+        /// <summary>
+        /// Создание файла без тегов
+        /// </summary>
+        /// <param name="_Rangs">Текст рангов</param>
+        /// <param name="_Data">Сфомированные данные</param>
+        /// <returns>Строка, с готовым форматом для записи</returns>
+        public static string CreateNoTEGS(string[] _Rangs, string[] _Data)
+        {
+            string Out = $"[RANGS]:{_Rangs.Length}\nSOR";
+            Out += string.Join("EOR\nSOR", _Rangs) + "EOR";
+            Out += $"\n[/RANGS]\n[DATA]:{_Data.Length}\n";
+            Out += string.Join("\n", _Data);
+            return Out + "\n[/DATA]";
         }
 
         /// <summary>
@@ -137,6 +115,21 @@ namespace ModbasServer
             string[] keys = _Data.Keys.ToArray();
 
             for (int i = 0; i < keys.Length; i++) Out[i] = $"<{keys[i]}>[{_Data[keys[i]].Length}]:" + '{' + string.Join(",", _Data[keys[i]]) + '}';
+            return Out;
+        }
+
+        /// <summary>
+        /// Конвертация директории в необходимый строковый формат
+        /// </summary>
+        /// <param name="_Keys">Именна адресов</param>
+        /// <param name="_value">Множество массивов с данныйми</param>
+        /// <returns>Строки, имеющий необходимы формат для записи</returns>
+        public static string[] CreateDATA(string[] _Keys, ushort[][] _value)
+        {
+            string[] Out = new string[_Keys.Length];
+            string[] keys = _Keys;
+
+            for (int i = 0; i < keys.Length; i++) Out[i] = $"<{keys[i]}>[{_value[i].Length}]:" + '{' + string.Join(",", keys[i]) + '}';
             return Out;
         }
 
@@ -158,6 +151,24 @@ namespace ModbasServer
                     Out.Add('{' + str[0] + ',' + str[2] + $",[{str[3]}]" + '}');
                 }
             }
+            return Out.ToArray();
+        }
+
+        /// <summary>
+        /// Конвертиция строкового массива в форматированный массив
+        /// </summary>
+        /// <param name="_data">Массив для конвертации</param>
+        /// <returns>Массив строк, определенного формата</returns>
+        public static string[] CreateTEGS(string[] _data)
+        {
+            List<string> Out = new List<string>();
+            string[] buf;
+            foreach (string str in _data)
+            {
+                buf = str.Split(',');
+                Out.Add('{' + buf[0] + ',' + buf[2] + $",[{buf[3]}]" + '}');
+            }
+
             return Out.ToArray();
         }
 
@@ -185,6 +196,26 @@ namespace ModbasServer
         }
 
         /// <summary>
+        /// Конвертиция строкового массива в форматированный массив
+        /// </summary>
+        /// <param name="_data">Массив для конвертации</param>
+        /// <param name="_sort">Список критериев для сортировки</param>
+        /// <returns>Массив строк, определенного формата</returns>
+        public static string[] CreateTEGS(string[] _data, string[] _sort)
+        {
+            List<string> Out = new List<string>();
+            string[] buf;
+            foreach (string str in _data)
+            {
+                buf = str.Split(',');
+                if (_sort.Contains(buf[0].Split(':')[0]))
+                    Out.Add('{' + buf[0] + ',' + buf[2] + $",[{buf[3]}]" + '}');
+            }
+
+            return Out.ToArray();
+        }
+
+        /// <summary>
         /// Выпуск или перезапись итогового файла
         /// </summary>
         /// <param name="_path">Место размещение файла</param>
@@ -197,6 +228,84 @@ namespace ModbasServer
                 fs.Write(b, 0, b.Length);
             }
             Console.WriteLine("Saved");
+        }
+
+        /// <summary>
+        /// Выпуск или перезапись итогового файла
+        /// </summary>
+        /// <param name="_path">Место размещение файла</param>
+        /// <param name="_Rangs">Массив, состоящий из строк ранга</param>
+        /// <param name="_Data">Массив, состоящий из форматированных строк данных</param>
+        public static void ToFile(string _path, string[] _Rangs, string[] _Data)
+        {
+            string _data = Create(_Rangs, _Data);
+            using (FileStream fs = new FileStream(_path, FileMode.Create))
+            {
+                byte[] b = Encoding.UTF8.GetBytes(_data);
+                fs.Write(b, 0, b.Length);
+            }
+            Console.WriteLine("Saved");
+        }
+
+        /// <summary>
+        /// Выпуск или перезапись итогового файла
+        /// </summary>
+        /// <param name="_path">Место размещение файла</param>
+        /// <param name="_Rangs">Массив, состоящий из строк ранга</param>
+        /// <param name="_Data">Массив, состоящий из форматированных строк данных</param>
+        /// <param name="_Tegs">Массив, состоящий из форматированных строк тегов</param>
+        public static void ToFile(string _path, string[] _Rangs, string[] _Data, string[] _Tegs)
+        {
+            string _data = Create(_Rangs, _Data, _Tegs);
+            using (FileStream fs = new FileStream(_path, FileMode.Create))
+            {
+                byte[] b = Encoding.UTF8.GetBytes(_data);
+                fs.Write(b, 0, b.Length);
+            }
+            Console.WriteLine("Saved");
+        }
+        /// <summary>
+        /// Полуение значений и и имен адресов
+        /// </summary>
+        /// <param name="path">Строковый массив данный, полученные из файла</param>
+        /// <returns>Дирекктория значений [string Name]->[ushort[]]</returns>
+
+        public static Dictionary<string, ushort[]> GetData(string[] _data)
+        {
+            string[] _buf;
+            string name;
+            ushort[] value;
+            Dictionary<string, ushort[]> _out = new Dictionary<string, ushort[]>();
+            foreach (string str in _data)
+            {
+                _buf = str.Split(':');
+                name = new Regex(@">\[\d*\]").Replace(_buf[0], "").Replace("<", "");
+                value = _buf[1].Replace("{", "").Replace("}", "").Split(',').Select(x => ushort.Parse(x)).ToArray();
+                _out.Add(name, value);
+            }
+            return _out;
+        }
+
+        /// <summary>
+        /// Полуение значений и и имен адресов
+        /// </summary>
+        /// <param name="path">путь к файлу</param>
+        /// <returns>Дирекктория значений [string Name]->[ushort[]]</returns>
+        public static Dictionary<string, ushort[]> GetData(string path)
+        {
+            string[] _data = Load(path, Type.DATA);
+            string[] _buf;
+            string name;
+            ushort[] value;
+            Dictionary<string, ushort[]> _out = new Dictionary<string, ushort[]>();
+            foreach (string str in _data)
+            {
+                _buf = str.Split(':');
+                name = new Regex(@">\[\d*\]").Replace(_buf[0], "").Replace("<", "");
+                value = _buf[1].Replace("{", "").Replace("}", "").Split(',').Select(x => ushort.Parse(x)).ToArray();
+                _out.Add(name, value);
+            }
+            return _out;
         }
     }
 }
