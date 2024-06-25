@@ -51,11 +51,28 @@ namespace ModbasServer
             for (int i = 0; i < count; i++)
             {
                 if (new Regex(@"\A\[/\w*\]").IsMatch(_load[index])) return _out;
-                _out[i] = new Regex(@"\ASOR\s|\sEOR\z").Replace(_load[index], "");
+                _out[i] = new Regex(@"\ASOR|EOR\z").Replace(_load[index], "");
                 index++;
             }
             return _out;
         }
+
+        /// <summary>
+        /// Создание файла
+        /// </summary>
+        /// <param name="_Rangs">Текст рангов</param>
+        /// <param name="_Data">Директория: название - массив данных</param>
+        /// <returns>Строка, с готовым форматом для записи</returns>
+        public static string Create(string[] _Rangs, Dictionary<string, ushort[]> _Data)
+        {
+            string[] Data = CreateDATA(_Data);
+            string Out = $"[RANGS]:{_Rangs.Length}\nSOR";
+            Out += string.Join("EOR\nSOR", _Rangs) + "EOR";
+            Out += $"\n[/RANGS]\n[TEGS]:0\n[/TEGS]\n[DATA]:{Data.Length}\n";
+            Out += string.Join("\n", Data);
+            return Out + "\n[/DATA]";
+        }
+
         /// <summary>
         /// Создание файла
         /// </summary>
@@ -90,17 +107,41 @@ namespace ModbasServer
         }
 
         /// <summary>
-        /// Создание файла без тегов
+        /// Создание файла
         /// </summary>
         /// <param name="_Rangs">Текст рангов</param>
-        /// <param name="_Data">Сфомированные данные</param>
+        /// <param name="_Data">Директория: название - массив данных</param>
+        /// <param name="_Tegs">Сформированные теги</param>
         /// <returns>Строка, с готовым форматом для записи</returns>
-        public static string CreateNoTEGS(string[] _Rangs, string[] _Data)
+        public static string Create(string[] _Rangs, Dictionary<string, ushort[]> _Data, string[] _Tegs)
         {
+            string[] Data = CreateDATA(_Data);
             string Out = $"[RANGS]:{_Rangs.Length}\nSOR";
             Out += string.Join("EOR\nSOR", _Rangs) + "EOR";
-            Out += $"\n[/RANGS]\n[DATA]:{_Data.Length}\n";
-            Out += string.Join("\n", _Data);
+            Out += $"\n[/RANGS]\n[TEGS]:{_Tegs.Length}\n";
+            Out += string.Join("\n", _Tegs);
+            Out += $"\n[/TEGS]\n[DATA]:{Data.Length}\n";
+            Out += string.Join("\n", Data);
+            return Out + "\n[/DATA]";
+        }
+
+        /// <summary>
+        /// Создание файла
+        /// </summary>
+        /// <param name="_Rangs">Текст рангов</param>
+        /// <param name="_Data">Директория: название - массив данных</param>
+        /// <param name="_Tegs">Директория, содержащаяя нужную информацию</param>
+        /// <returns>Строка, с готовым форматом для записи</returns>
+        public static string Create(string[] _Rangs, Dictionary<string, ushort[]> _Data, Dictionary<string, string[]> _Tegs)
+        {
+            string[] Data = CreateDATA(_Data);
+            string[] Tegs = CreateTEGS(_Tegs);
+            string Out = $"[RANGS]:{_Rangs.Length}\nSOR";
+            Out += string.Join("EOR\nSOR", _Rangs) + "EOR";
+            Out += $"\n[/RANGS]\n[TEGS]:{Tegs.Length}\n";
+            Out += string.Join("\n", Tegs);
+            Out += $"\n[/TEGS]\n[DATA]:{Data.Length}\n";
+            Out += string.Join("\n", Data);
             return Out + "\n[/DATA]";
         }
 
@@ -131,6 +172,21 @@ namespace ModbasServer
 
             for (int i = 0; i < keys.Length; i++) Out[i] = $"<{keys[i]}>[{_value[i].Length}]:" + '{' + string.Join(",", keys[i]) + '}';
             return Out;
+        }
+
+        /// <summary>
+        /// Создание файла без тегов
+        /// </summary>
+        /// <param name="_Rangs">Текст рангов</param>
+        /// <param name="_Data">Сфомированные данные</param>
+        /// <returns>Строка, с готовым форматом для записи</returns>
+        public static string CreateNoTEGS(string[] _Rangs, string[] _Data)
+        {
+            string Out = $"[RANGS]:{_Rangs.Length}\nSOR";
+            Out += string.Join("EOR\nSOR", _Rangs) + "EOR";
+            Out += $"\n[/RANGS]\n[DATA]:{_Data.Length}\n";
+            Out += string.Join("\n", _Data);
+            return Out + "\n[/DATA]";
         }
 
         /// <summary>
@@ -170,6 +226,22 @@ namespace ModbasServer
             }
 
             return Out.ToArray();
+        }
+
+        /// <summary>
+        /// Формирует дирекорию для записи в файл
+        /// </summary>
+        /// <param name="_Tegs">Директория, содержащаяя нужную информацию</param>
+        /// <returns>сформированый массив данных</returns>
+        public static string[] CreateTEGS(Dictionary<string, string[]> _Tegs)
+        {
+            string[] _out = new string[_Tegs.Count];
+            string[] _keys = _Tegs.Keys.ToArray();
+            for (int ind = 0; ind < _keys.Length; ind++)
+            {
+                _out[ind] = "{" + string.Format("{0},{1},[{2}]", _keys[ind], _Tegs[_keys[ind]][0], _Tegs[_keys[ind]][1]) + "}";
+            }
+            return _out;
         }
 
         /// <summary>
@@ -264,12 +336,12 @@ namespace ModbasServer
             }
             Console.WriteLine("Saved");
         }
+
         /// <summary>
         /// Полуение значений и и имен адресов
         /// </summary>
         /// <param name="path">Строковый массив данный, полученные из файла</param>
         /// <returns>Дирекктория значений [string Name]->[ushort[]]</returns>
-
         public static Dictionary<string, ushort[]> GetData(string[] _data)
         {
             string[] _buf;
@@ -287,7 +359,7 @@ namespace ModbasServer
         }
 
         /// <summary>
-        /// Полуение значений и и имен адресов
+        /// Полуение значений и имен адресов
         /// </summary>
         /// <param name="path">путь к файлу</param>
         /// <returns>Дирекктория значений [string Name]->[ushort[]]</returns>
@@ -303,6 +375,49 @@ namespace ModbasServer
                 _buf = str.Split(':');
                 name = new Regex(@">\[\d*\]").Replace(_buf[0], "").Replace("<", "");
                 value = _buf[1].Replace("{", "").Replace("}", "").Split(',').Select(x => ushort.Parse(x)).ToArray();
+                _out.Add(name, value);
+            }
+            return _out;
+        }
+
+        /// <summary>
+        /// Получение значений адреса и значений
+        /// </summary>
+        /// <param name="path">Путь к файлу</param>
+        /// <returns>Директория значений [string Adres] ->[string[2]{ Teg, Coment }]</returns>
+        public static Dictionary<string, string[]> GetTegs(string path)
+        {
+            string[] _data = Load(path, Type.TEGS);
+            string[] _buf;
+            string name;
+            string[] value;
+            Dictionary<string, string[]> _out = new Dictionary<string, string[]>();
+            foreach (string str in _data)
+            {
+                _buf = str.Replace("{", "").Replace("}", "").Split(',');
+                name = _buf[0];
+                value = new string[] { _buf[1], _buf[2].Replace("[", "").Replace("]", "") };
+                _out.Add(name, value);
+            }
+            return _out;
+        }
+
+        /// <summary>
+        /// Получение значений адреса и значений 
+        /// </summary>
+        /// <param name="_data">Счианный массив строк</param>
+        /// <returns>Директория значений [string Adres] ->[string[2]{ Teg, Coment }]</returns>
+        public static Dictionary<string, string[]> GetTegs(string[] _data)
+        {
+            string[] _buf;
+            string name;
+            string[] value;
+            Dictionary<string, string[]> _out = new Dictionary<string, string[]>();
+            foreach (string str in _data)
+            {
+                _buf = str.Replace("{", "").Replace("}", "").Split(',');
+                name = _buf[0];
+                value = new string[] { _buf[1], _buf[2].Replace("[", "").Replace("]", "") };
                 _out.Add(name, value);
             }
             return _out;

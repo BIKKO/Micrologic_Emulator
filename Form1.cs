@@ -7,6 +7,8 @@ using System.Threading;
 using Microsoft.VisualBasic.Logging;
 using System.Windows.Forms;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
+using System.Reflection;
 
 
 namespace ModbasServer
@@ -20,13 +22,16 @@ namespace ModbasServer
         private Thread ListenThred;
         private Thread GenerateData;
         private int RangAdr;
-        private int[] adres = new int[] { 1000, 600, 1200, 2000, 7200, 1300, 7000, 6800 };
         private Dictionary<string, int> Adreses;
         private Dictionary<string, ushort[]> Data;
         private string[] TextRangs;
         private byte[] IP;
         private int Port;
         private byte Slave;
+        private Dictionary<string, string[]> Tegs;
+        private readonly Regex maskAdr = new Regex(@"\s?([A-Z]{3})\s?");// Выделение Адрес
+        private readonly Regex mask = new Regex(@"((\s?[A-Z]\d?\d?\d?:\d?\d?\d?)(/\b?\b?)?\s?)|[0.0-9999.0]");// Выделение мномоник
+        private int[] Timer_control = new int[32];
 
 
         public Form1()
@@ -56,7 +61,7 @@ namespace ModbasServer
             }
             label1.Text = "";
 
-            DataValue = DataStoreFactory.CreateDefaultDataStore();
+            DataValue = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
 
             comboBox1.Items.Add("Расположение рангов");
             comboBox1.Items.AddRange(Adreses.Keys.ToArray());
@@ -86,7 +91,7 @@ namespace ModbasServer
             {
                 int count = 8001 + ind_Rang;
                 line = TextRangs[ind_Rang];
-                rang = DataStoreFactory.CreateDefaultDataStore();
+                rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
                 ushort temp = 0;
                 for (int i = 0; i < 240;)
                 {
@@ -166,7 +171,7 @@ namespace ModbasServer
                                 start_stop = !start_stop;
                                 StartStop.BackColor = Color.Red;
                                 StartStop.Text = "Стоп";
-                                label1.Text = string.Join(".",IP)=="0.0.0.0"?"127.0.0.1:"+Port: string.Join(".", IP)+':'+Port;
+                                label1.Text = string.Join(".", IP) == "0.0.0.0" ? "127.0.0.1:" + Port : string.Join(".", IP) + ':' + Port;
 
 
 
@@ -215,7 +220,9 @@ namespace ModbasServer
                                     if (TextRangs == null)
                                     {
                                         Data = CreateFile.GetData(Location.Text);
+                                        SetFDataToDatMB();
                                         TextRangs = CreateFile.Load(Location.Text, Type.RANG);
+                                        Tegs = CreateFile.GetTegs(Location.Text);
                                     }
                                     else if (TextRangs != CreateFile.Load(Location.Text, Type.RANG)) TextRangs = CreateFile.Load(Location.Text, Type.RANG);
                                 }
@@ -225,7 +232,7 @@ namespace ModbasServer
                                     else if (TextRangs != File.ReadAllLines(Location.Text)) TextRangs = File.ReadAllLines(Location.Text);
                                 }
                                 transfer(TextRangs);
-
+                                //IsnensRangs(TextRangs);
                             }
                             break;
                         }
@@ -234,23 +241,176 @@ namespace ModbasServer
             catch (Exception ex) { MessageBox.Show(ListenThred.ThreadState.ToString() + " " + ex.Message); }
         }
 
+        private void SetFDataToDatMB()
+        {
+            string[] datakey = Data.Keys.ToArray();
+            foreach (string key in datakey)
+            {
+                for (int index = 0; index < Data[key].Length; index++)
+                {
+                    DataValue.HoldingRegisters[Adreses[key] + index] = Data[key][index];
+                }
+            }
+        }
+
         /// <summary>
         /// Задача и обновление регистров
         /// </summary>
         public void SetData()
         {
-            Random random = new Random();
+            //Random random = new Random();
             while (true)
             {
-                Thread.Sleep(200);
-                foreach (int ad in adres)
+                Thread.Sleep(1000);
+                //foreach (int ad in adres)
+                //{
+                //    for (int i = 0; i < 100; i++)
+                //    {
+                //        Thread.Sleep(100);
+                //        DataValue.HoldingRegisters[ad + 1 + i] = (ushort)Math.Abs(random.Next(0, ushort.MaxValue));
+                //    }
+                //}
+                foreach (string item in TextRangs)
                 {
-                    for (int i = 0; i < 100; i++)
-                    {
-                        Thread.Sleep(100);
-                        DataValue.HoldingRegisters[ad + 1 + i] = (ushort)Math.Abs(random.Next(0, ushort.MaxValue));
-                    }
+                    IsnensRangs(item);
+                    Thread.Sleep(200);
                 }
+            }
+        }
+
+        public void IsnensRangs(string _Rang)
+        {
+            short ist = 1;
+            double u;
+            string[] adress = maskAdr.Replace(_Rang, " ").Trim().Split(' ').Where(a => a != "" && a != "DN" && a != "EN" && a != "TT").ToArray();
+            string[] Adr = adress.Where(x => !double.TryParse(new Regex(@"(:\d*.?\d*)").Replace(x, "").Replace('.', ','), out u)).ToArray();
+            string[] rang_text = mask.Replace(_Rang, " ").Trim().Split(' ').Where(a => a != "" && a != "DN" && a != "EN" && a != "TT").ToArray();
+            short CountBranch = 0;
+            short index = 0;
+
+            for (int i = 0; i < rang_text.Length; i++)
+            {
+                string el = rang_text[i];
+                if (el == "BST")
+                {
+                    CountBranch++;
+                    continue;
+                }
+                else if (el == "NXB")
+                {
+                    ist = 0;
+                    short[] info = InsnensBranch(rang_text, Adr, index, CountBranch, i);
+                    ist = (short)(info[0] | ist);
+                    index = info[1];
+                    i = info[3];
+                }
+                else
+                {
+                    short buf;
+                    if (el == "XIO") buf = Convert.ToInt16(!Adres(Adr[index]));
+                    else buf = Convert.ToInt16(Adres(Adr[index]));
+
+                    ist = (short)(ist & buf);
+                }
+                index++;
+            }
+            //MessageBox.Show(ist.ToString());
+        }
+
+        private short[] InsnensBranch(string[] _Rangs, string[] _Adres, short _index, short _CountBranch, int _i)
+        {
+            short ist = 1;
+            short CountBranch = _CountBranch;
+            short index = _index;
+            for (int i = _i + 1; i < _Rangs.Length; i++)
+            {
+                string el = _Rangs[i];
+                if (el == "BST")
+                {
+                    CountBranch++;
+                    continue;
+                }
+                else if (el == "NXB")
+                {
+                    ist = 0;
+                    short[] info = InsnensBranch(_Rangs, _Adres, index, CountBranch, i);
+                    if (info[2] == 0) return info;
+                    ist = (short)(info[0] | ist);
+                    index = info[1];
+                    continue;
+                }
+                else if (el == "BND")
+                {
+                    return new short[] { ist, index, CountBranch--, (short)i };
+                }
+                else
+                {
+                    if (el == "XIO") ist = (short)(Convert.ToInt16(!Adres(_Adres[index])) & ist);
+                    else ist = (short)(Convert.ToInt16(Adres(_Adres[index])) & ist);
+                }
+                index++;
+            }
+            throw new Exception();
+        }
+
+        private bool Adres(string st)
+        {
+            try
+            {
+                string mas = new Regex(@":\w*(/(\w*)?)?").Replace(st, "");
+                string[] k = new string[2];
+                int Bitmask = 0;
+                int ind_1;
+                int adr;
+
+                if (st.Contains("N13")) k = st.Replace("N13:", "").Split('/');
+                if (st.Contains("N15")) k = st.Replace("N15:", "").Split('/');
+                if (st.Contains("N18")) k = st.Replace("N18:", "").Split('/');
+                if (st.Contains("N40")) k = st.Replace("N40:", "").Split('/');
+                if (st.Contains("B3")) k = st.Replace("B3:", "").Split('/');
+                if (st.Contains("T4")) k = st.Replace("T4:", "").Split('/');
+
+                if (k.Contains("EN"))
+                {
+                    Bitmask = 1;
+                    ind_1 = int.Parse(k[0]);
+                    adr = Timer_control[ind_1];
+
+                    if ((adr & Bitmask) == Bitmask) return true;
+                    return false;
+                }
+                else if (k.Contains("DN"))
+                {
+                    Bitmask = 2;
+                    ind_1 = int.Parse(k[0]);
+                    adr = Timer_control[ind_1];
+
+                    if ((adr & Bitmask) == Bitmask) return true;
+                    return false;
+                }
+                else if (k.Contains("TT"))
+                {
+                    Bitmask = 4;
+                    ind_1 = int.Parse(k[0]);
+                    adr = Timer_control[ind_1];
+
+                    if ((adr & Bitmask) == Bitmask) return true;
+                    return false;
+                }
+                else
+                {
+                    Bitmask = 1 << int.Parse(k[1]);
+
+                    ind_1 = int.Parse(k[0]);
+                    adr = Data[mas][ind_1];
+
+                    if ((adr & Bitmask) == Bitmask) return true;
+                    return false;
+                }
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
 
@@ -265,7 +425,7 @@ namespace ModbasServer
             BeginInvoke(new MethodInvoker(() =>
             {
                 listlog.Items.Add(e.Message);
-                if (listlog.Items.Count > 14) listlog.Items.Remove(listlog.Items[0]);
+                //if (listlog.Items.Count > 14) listlog.Items.Remove(listlog.Items[0]);
                 listlog.SelectedIndex = listlog.Items.Count - 1;
             }));
 
@@ -391,9 +551,10 @@ namespace ModbasServer
             {
                 Stream file = saveFileDialog1.OpenFile();
                 StreamWriter sw = new StreamWriter(file);
+                GetDataMBtoDataF();
                 if (saveFileDialog1.FileName.Contains(".ldf"))
                 {
-                    sw.WriteLine(CreateFile.Create(TextRangs, CreateFile.CreateDATA(Data)));
+                    sw.WriteLine(CreateFile.Create(TextRangs, CreateFile.CreateDATA(Data), CreateFile.CreateTEGS(Tegs)));
                     sw.Close();
                     file.Close();
                     return;
@@ -404,6 +565,18 @@ namespace ModbasServer
                 file.Close();
                 file.Dispose();
                 sw.Dispose();
+            }
+        }
+
+        private void GetDataMBtoDataF()
+        {
+            string[] _keys = Data.Keys.ToArray();
+            foreach (string _key in _keys)
+            {
+                for(int i = 0; i < Data[_key].Length; i++)
+                {
+                    Data[_key][i] = DataValue.HoldingRegisters[Adreses[_key] + i];
+                }
             }
         }
 
@@ -418,7 +591,7 @@ namespace ModbasServer
             if (IP_1.Text != null && IP_1.Text != "" && (IP_2.Text != null && IP_2.Text != "") && (IP_3.Text != null && IP_3.Text != "") && (IP_4.Text != null && IP_4.Text != ""))
             {
                 IP = new byte[4];
-                if (int.TryParse(IP_1.Text, out u) && u<256 && u>=0) IP[0] = (byte)u;
+                if (int.TryParse(IP_1.Text, out u) && u < 256 && u >= 0) IP[0] = (byte)u;
                 else
                 {
                     IP_1.Text = "";
@@ -481,7 +654,7 @@ namespace ModbasServer
             }
             if (textBox2.Text != null && textBox2.Text != "")
             {
-                if(int.TryParse(textBox2.Text, out u)) Port = u;
+                if (int.TryParse(textBox2.Text, out u)) Port = u;
                 else
                 {
                     MessageBox.Show("Не верно указан порт");
@@ -491,7 +664,7 @@ namespace ModbasServer
             }
             if (textBox3.Text != null && textBox3.Text != "")
             {
-                if(int.TryParse(textBox3.Text, out u)) Slave = (byte)u;
+                if (int.TryParse(textBox3.Text, out u)) Slave = (byte)u;
                 else
                 {
                     MessageBox.Show("Не верно указан SlaveID");
