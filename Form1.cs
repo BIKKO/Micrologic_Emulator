@@ -217,22 +217,17 @@ namespace ModbasServer
                                 listlog.Items.Add("Server started");
                                 if (Location.Text.Contains("ldf"))
                                 {
-                                    if (TextRangs == null)
-                                    {
-                                        Data = CreateFile.GetData(Location.Text);
-                                        SetFDataToDatMB();
-                                        TextRangs = CreateFile.Load(Location.Text, Type.RANG);
-                                        Tegs = CreateFile.GetTegs(Location.Text);
-                                    }
-                                    else if (TextRangs != CreateFile.Load(Location.Text, Type.RANG)) TextRangs = CreateFile.Load(Location.Text, Type.RANG);
+                                    Data = CreateFile.GetData(Location.Text);
+                                    SetFDataToDatMB();
+                                    TextRangs = CreateFile.Load(Location.Text, Type.RANG);
+                                    Tegs = CreateFile.GetTegs(Location.Text);
                                 }
                                 else
                                 {
-                                    if (TextRangs == null) TextRangs = File.ReadAllLines(Location.Text);
-                                    else if (TextRangs != File.ReadAllLines(Location.Text)) TextRangs = File.ReadAllLines(Location.Text);
+                                    TextRangs = File.ReadAllLines(Location.Text);
                                 }
                                 transfer(TextRangs);
-                                //IsnensRangs(TextRangs);
+                                IsnensRangs(TextRangs[0]);
                             }
                             break;
                         }
@@ -253,29 +248,32 @@ namespace ModbasServer
             }
         }
 
+        private void GetDataMBtoDataF()
+        {
+            string[] _keys = Data.Keys.ToArray();
+            foreach (string _key in _keys)
+            {
+                for(int i = 0; i < Data[_key].Length; i++)
+                {
+                    Data[_key][i] = DataValue.HoldingRegisters[Adreses[_key] + i];
+                }
+            }
+        }
+
         /// <summary>
         /// Задача и обновление регистров
         /// </summary>
         public void SetData()
         {
-            //Random random = new Random();
-            while (true)
-            {
-                Thread.Sleep(1000);
-                //foreach (int ad in adres)
-                //{
-                //    for (int i = 0; i < 100; i++)
-                //    {
-                //        Thread.Sleep(100);
-                //        DataValue.HoldingRegisters[ad + 1 + i] = (ushort)Math.Abs(random.Next(0, ushort.MaxValue));
-                //    }
-                //}
-                foreach (string item in TextRangs)
-                {
-                    IsnensRangs(item);
-                    Thread.Sleep(200);
-                }
-            }
+            //while (true)
+            //{
+            //    Thread.Sleep(1000);
+            //    foreach (string item in TextRangs)
+            //    {
+            //        IsnensRangs(item);
+            //        Thread.Sleep(200);
+            //    }
+            //}
         }
 
         public void IsnensRangs(string _Rang)
@@ -285,6 +283,7 @@ namespace ModbasServer
             string[] adress = maskAdr.Replace(_Rang, " ").Trim().Split(' ').Where(a => a != "" && a != "DN" && a != "EN" && a != "TT").ToArray();
             string[] Adr = adress.Where(x => !double.TryParse(new Regex(@"(:\d*.?\d*)").Replace(x, "").Replace('.', ','), out u)).ToArray();
             string[] rang_text = mask.Replace(_Rang, " ").Trim().Split(' ').Where(a => a != "" && a != "DN" && a != "EN" && a != "TT").ToArray();
+            //ist = new short[Adr.Length];
             short CountBranch = 0;
             short index = 0;
 
@@ -298,9 +297,10 @@ namespace ModbasServer
                 }
                 else if (el == "NXB")
                 {
-                    ist = 0;
+                    //ist = 0;
                     short[] info = InsnensBranch(rang_text, Adr, index, CountBranch, i);
                     ist = (short)(info[0] | ist);
+                    //ist[index] = info[0];
                     index = info[1];
                     i = info[3];
                 }
@@ -309,12 +309,12 @@ namespace ModbasServer
                     short buf;
                     if (el == "XIO") buf = Convert.ToInt16(!Adres(Adr[index]));
                     else buf = Convert.ToInt16(Adres(Adr[index]));
-
+                    //ist[index] = buf;
                     ist = (short)(ist & buf);
                 }
                 index++;
             }
-            //MessageBox.Show(ist.ToString());
+            MessageBox.Show(string.Join(", ", ist));
         }
 
         private short[] InsnensBranch(string[] _Rangs, string[] _Adres, short _index, short _CountBranch, int _i)
@@ -332,7 +332,7 @@ namespace ModbasServer
                 }
                 else if (el == "NXB")
                 {
-                    ist = 0;
+                    //ist = 0;
                     short[] info = InsnensBranch(_Rangs, _Adres, index, CountBranch, i);
                     if (info[2] == 0) return info;
                     ist = (short)(info[0] | ist);
@@ -402,7 +402,7 @@ namespace ModbasServer
                     Bitmask = 1 << int.Parse(k[1]);
 
                     ind_1 = int.Parse(k[0]);
-                    adr = Data[mas][ind_1];
+                    adr = DataValue.HoldingRegisters[ind_1 + Adreses[mas]];
 
                     if ((adr & Bitmask) == Bitmask) return true;
                     return false;
@@ -565,18 +565,6 @@ namespace ModbasServer
                 file.Close();
                 file.Dispose();
                 sw.Dispose();
-            }
-        }
-
-        private void GetDataMBtoDataF()
-        {
-            string[] _keys = Data.Keys.ToArray();
-            foreach (string _key in _keys)
-            {
-                for(int i = 0; i < Data[_key].Length; i++)
-                {
-                    Data[_key][i] = DataValue.HoldingRegisters[Adreses[_key] + i];
-                }
             }
         }
 
