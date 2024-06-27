@@ -1,15 +1,10 @@
-using System;
 using System.Net;
 using System.Net.Sockets;
 using Modbus.Device;
 using Modbus.Data;
-using System.Threading;
-using Microsoft.VisualBasic.Logging;
-using System.Windows.Forms;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Reflection;
 using System.Diagnostics;
+using System.Data;
 
 
 namespace ModbasServer
@@ -22,6 +17,7 @@ namespace ModbasServer
         private ModbusSlave mb_tcp_server;
         private Thread ListenThred;
         private Thread GenerateData;
+        private Thread DataTon;
         private int RangAdr;
         private Dictionary<string, int> Adreses;
         private Dictionary<string, ushort[]> Data;
@@ -30,8 +26,6 @@ namespace ModbasServer
         private int Port;
         private byte Slave;
         private Dictionary<string, string[]> Tegs;
-        private readonly Regex maskAdr = new Regex(@"\s?([A-Z]{3})\s?");// Выделение Адрес
-        private readonly Regex mask = new Regex(@"((\s?[A-Z]\d?\d?\d?:\d?\d?\d?)(/\b?\b?)?\s?)|[0.0-9999.0]");// Выделение мномоник
         private int[] Timer_control = new int[32];
 
 
@@ -150,6 +144,7 @@ namespace ModbasServer
                             {
                                 GenerateData.Abort(100);
                                 ListenThred.Abort(100);
+                                DataTon.Abort(100);
                             }
                             catch
                             {
@@ -157,6 +152,7 @@ namespace ModbasServer
                                 listlog.Items.Add("Server stoped");
                                 ListenThred = null;
                                 GenerateData = null;
+                                DataTon = null;
                             }
 
                             break;
@@ -212,6 +208,27 @@ namespace ModbasServer
 
                                 GenerateData.Name = "SetData";
 
+                                if (DataTon == null)
+                                {
+                                    DataTon = new Thread(() =>
+                                    {
+                                        try
+                                        {
+                                            SetDataTon();
+                                        }
+                                        catch (ThreadAbortException ex)
+                                        {
+                                            BeginInvoke(new MethodInvoker(() => { listlog.Items.Add("Thread(th_1) is aborted " + ex.ExceptionState); }));
+                                        }
+                                    })
+                                    {
+                                        IsBackground = true,
+                                    };
+                                }
+
+                                DataTon.Name = "Timers";
+
+                                //DataTon.Start();
                                 ListenThred.Start();
                                 GenerateData.Start();
 
@@ -268,6 +285,14 @@ namespace ModbasServer
         }
 
         /// <summary>
+        /// Метод обратотки таймеров
+        /// </summary>
+        public void SetDataTon()
+        {
+
+        }
+
+        /// <summary>
         /// Задача и обновление регистров
         /// </summary>
         public void SetData()
@@ -278,7 +303,9 @@ namespace ModbasServer
                 Thread.Sleep(100);
                 foreach (string item in TextRangs)
                 {
+#if DEBUG
                     Debug.Print("Ранг №"+num);
+#endif
                     IsnensRangs(item);
                     num++;
                     //Thread.Sleep(200);
@@ -347,7 +374,9 @@ namespace ModbasServer
                     }
                 }
             }
+            #if DEBUG
             Debug.Print("Ранг " + (ist == 1 ? "истин" : "ложен"));
+            #endif
         }
 
         /// <summary>
