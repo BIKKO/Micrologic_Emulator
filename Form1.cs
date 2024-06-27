@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Reflection;
+using System.Diagnostics;
 
 
 namespace ModbasServer
@@ -236,6 +237,9 @@ namespace ModbasServer
             catch (Exception ex) { MessageBox.Show(ListenThred.ThreadState.ToString() + " " + ex.Message); }
         }
 
+        /// <summary>
+        /// Ввод данных из массива в регистрыы
+        /// </summary>
         private void SetFDataToDatMB()
         {
             string[] datakey = Data.Keys.ToArray();
@@ -248,6 +252,9 @@ namespace ModbasServer
             }
         }
 
+        /// <summary>
+        /// Вывод даных из регистров в массив
+        /// </summary>
         private void GetDataMBtoDataF()
         {
             string[] _keys = Data.Keys.ToArray();
@@ -265,27 +272,29 @@ namespace ModbasServer
         /// </summary>
         public void SetData()
         {
-            //while (true)
-            //{
-            //    Thread.Sleep(1000);
-            //    foreach (string item in TextRangs)
-            //    {
-            //        IsnensRangs(item);
-            //        Thread.Sleep(200);
-            //    }
-            //}
+            while (!start_stop)
+            {
+                int num = 1;
+                Thread.Sleep(100);
+                foreach (string item in TextRangs)
+                {
+                    Debug.Print("Ранг №"+num);
+                    IsnensRangs(item);
+                    num++;
+                    //Thread.Sleep(200);
+                } 
+            }
         }
 
+        /// <summary>
+        /// Проверка истиности ранга
+        /// </summary>
+        /// <param name="_Rang">Текст ранга</param>
         public void IsnensRangs(string _Rang)
         {
             short ist = 1;
-            double u;
-            string[] adress = maskAdr.Replace(_Rang, " ").Trim().Split(' ').Where(a => a != "" && a != "DN" && a != "EN" && a != "TT").ToArray();
-            string[] Adr = adress.Where(x => !double.TryParse(new Regex(@"(:\d*.?\d*)").Replace(x, "").Replace('.', ','), out u)).ToArray();
-            string[] rang_text = mask.Replace(_Rang, " ").Trim().Split(' ').Where(a => a != "" && a != "DN" && a != "EN" && a != "TT").ToArray();
-            //ist = new short[Adr.Length];
+            string[] rang_text = _Rang.Trim().Split(' ');
             short CountBranch = 0;
-            short index = 0;
 
             for (int i = 0; i < rang_text.Length; i++)
             {
@@ -297,31 +306,62 @@ namespace ModbasServer
                 }
                 else if (el == "NXB")
                 {
-                    //ist = 0;
-                    short[] info = InsnensBranch(rang_text, Adr, index, CountBranch, i);
+                    short[] info = InsnensBranch(rang_text, CountBranch, i);
                     ist = (short)(info[0] | ist);
-                    //ist[index] = info[0];
-                    index = info[1];
-                    i = info[3];
+                    i = info[2];
+                    continue;
                 }
                 else
                 {
-                    short buf;
-                    if (el == "XIO") buf = Convert.ToInt16(!Adres(Adr[index]));
-                    else buf = Convert.ToInt16(Adres(Adr[index]));
-                    //ist[index] = buf;
-                    ist = (short)(ist & buf);
+                    switch (el)
+                    {
+                        case "TON":
+                            i += 4;
+                            break;
+                        case "MOV":
+                            i += 2;
+                            break;
+                        case "ADD":
+                            i += 3;
+                            break;
+                        case "DIV":
+                            i += 3;
+                            break;
+                        case "MUL":
+                            i += 3;
+                            break;
+                        case "ABS":
+                            i += 2;
+                            break;
+                        case "SCP":
+                            i += 6;
+                            break;
+                        case "MSG":
+                            i += 15;
+                            break;
+                        default:
+                            if (el == "XIO") ist = (short)(ist & Convert.ToInt16(!Adres(rang_text[i + 1])));
+                            else ist = (short)(ist & Convert.ToInt16(Adres(rang_text[i + 1])));
+                            i++;
+                            break;
+                    }
                 }
-                index++;
             }
-            MessageBox.Show(string.Join(", ", ist));
+            Debug.Print("Ранг " + (ist == 1 ? "истин" : "ложен"));
         }
 
-        private short[] InsnensBranch(string[] _Rangs, string[] _Adres, short _index, short _CountBranch, int _i)
+        /// <summary>
+        /// Проверка истиности ветви
+        /// </summary>
+        /// <param name="_Rangs">Текст ранга, разбитый по пробелам</param>
+        /// <param name="_CountBranch">Счетчик ветвей</param>
+        /// <param name="_i">Индекс в текстре ранга</param>
+        /// <returns>истиность;кол-во ветвей;индекс нахождения конца ветви</returns>
+        /// <exception cref="Exception"></exception>
+        private short[] InsnensBranch(string[] _Rangs, short _CountBranch, int _i)
         {
             short ist = 1;
             short CountBranch = _CountBranch;
-            short index = _index;
             for (int i = _i + 1; i < _Rangs.Length; i++)
             {
                 string el = _Rangs[i];
@@ -332,27 +372,60 @@ namespace ModbasServer
                 }
                 else if (el == "NXB")
                 {
-                    //ist = 0;
-                    short[] info = InsnensBranch(_Rangs, _Adres, index, CountBranch, i);
-                    if (info[2] == 0) return info;
+                    short[] info = InsnensBranch(_Rangs, CountBranch, i);
+                    if (info[1] == 0) return info;
                     ist = (short)(info[0] | ist);
-                    index = info[1];
+                    i = info[2];
                     continue;
                 }
                 else if (el == "BND")
                 {
-                    return new short[] { ist, index, CountBranch--, (short)i };
+                    return new short[] { ist, (short)(CountBranch -1), (short)i };
                 }
                 else
                 {
-                    if (el == "XIO") ist = (short)(Convert.ToInt16(!Adres(_Adres[index])) & ist);
-                    else ist = (short)(Convert.ToInt16(Adres(_Adres[index])) & ist);
+                    switch (el)
+                    {
+                        case "TON":
+                            i += 4;
+                            break;
+                        case "MOV":
+                            i += 2;
+                            break;
+                        case "ADD":
+                            i += 3;
+                            break;
+                        case "DIV":
+                            i += 3;
+                            break;
+                        case "MUL":
+                            i += 3;
+                            break;
+                        case "ABS":
+                            i += 2;
+                            break;
+                        case "SCP":
+                            i += 6;
+                            break;
+                        case "MSG":
+                            i += 15;
+                            break;
+                        default:
+                            if (el == "XIO") ist = (short)(ist & Convert.ToInt16(!Adres(_Rangs[i + 1])));
+                            else ist = (short)(ist & Convert.ToInt16(Adres(_Rangs[i + 1])));
+                            i++;
+                            break;
+                    }
                 }
-                index++;
             }
             throw new Exception();
         }
 
+        /// <summary>
+        /// Проверка истиности элеента
+        /// </summary>
+        /// <param name="st">Адрес</param>
+        /// <returns></returns>
         private bool Adres(string st)
         {
             try
