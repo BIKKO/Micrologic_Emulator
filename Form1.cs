@@ -4,9 +4,6 @@ using Modbus.Device;
 using Modbus.Data;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
-using System.Data;
-using System;
-using System.Xml.Linq;
 
 
 namespace ModbasServer
@@ -19,7 +16,7 @@ namespace ModbasServer
         private ModbusSlave mb_tcp_server;
         private Thread ListenThred;
         private Thread GenerateData;
-        private Thread DataTon;
+        private Thread TonDeta;
         private int RangAdr;
         private Dictionary<string, int> Adreses;
         private Dictionary<string, ushort[]> Data;
@@ -28,7 +25,9 @@ namespace ModbasServer
         private int Port;
         private byte Slave;
         private Dictionary<string, string[]> Tegs;
-        private int[] Timer_control = new int[32];
+        private const int timer_max = 24;
+        private int[] TimeBase = new int[timer_max];
+        private int[] Timers_ms_count = new int[timer_max];
 
         private string[] k = new string[2];
         private int Bitmask = 0;
@@ -142,16 +141,11 @@ namespace ModbasServer
                         {
                             mb_tcp_server.ModbusSlaveRequestReceived -= Mb_tcp_server_ModbusSlaveRequestReceived;
                             mb_tcp_server.Dispose();
-
-                            StartStop.BackColor = Color.Green;
-                            StartStop.Text = "Старт";
-                            start_stop = !start_stop;
-                            label1.Text = "";
                             try
                             {
                                 GenerateData.Abort(100);
                                 ListenThred.Abort(100);
-                                DataTon.Abort(100);
+                                TonDeta.Abort(100);
                             }
                             catch
                             {
@@ -159,8 +153,13 @@ namespace ModbasServer
                                 listlog.Items.Add("Server stoped");
                                 ListenThred = null;
                                 GenerateData = null;
-                                DataTon = null;
+                                TonDeta = null;
                             }
+
+                            StartStop.BackColor = Color.Green;
+                            StartStop.Text = "Старт";
+                            start_stop = !start_stop;
+                            label1.Text = "";
 
                             break;
                         }
@@ -207,15 +206,13 @@ namespace ModbasServer
                                     };
 
                                 GenerateData.Name = "SetData";
-
-                                start_stop = !start_stop;
-                                if (DataTon == null)
-                                {
-                                    DataTon = new Thread(() =>
+                                
+                                if (TonDeta == null)
+                                    TonDeta = new Thread(() =>
                                     {
                                         try
                                         {
-                                            SetDataTon();
+                                            TimerUp();
                                         }
                                         catch (ThreadAbortException ex)
                                         {
@@ -225,13 +222,8 @@ namespace ModbasServer
                                     {
                                         IsBackground = true,
                                     };
-                                }
 
-                                DataTon.Name = "Timers";
-
-                                //DataTon.Start();
-                                ListenThred.Start();
-                                GenerateData.Start();
+                                TonDeta.Name = "Timer";
 
                                 if (Location.Text.Contains("ldf"))
                                 {
@@ -244,6 +236,13 @@ namespace ModbasServer
                                 {
                                     TextRangs = File.ReadAllLines(Location.Text);
                                 }
+                                
+                                ListenThred.Start();
+                                GenerateData.Start();
+                                TonDeta.Start();
+
+                                start_stop = !start_stop;
+
                                 transfer(TextRangs);
                                 IsnensRangs(TextRangs[0]);
                             }
@@ -285,27 +284,42 @@ namespace ModbasServer
         }
 
         /// <summary>
-        /// Метод обратотки таймеров
-        /// </summary>
-        public void SetDataTon()
-        {
-            Thread.Sleep(100);
-            while (!start_stop)
-            {
-                Task.Delay(10);
-                //обновлние таймеров
-
-            }
-        }
-
-        /// <summary>
         /// Метод обратотки таймеров таймером
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void TONupdate_Tick(object sender, EventArgs e)
+        public void TimerUp()
         {
+            while (true)
+            {
+                for (int i = 0; i < timer_max; i++)
+                {
+                    if (TimeBase[i] != 0)
+                    {
+                        if ((DataValue.HoldingRegisters[Adreses["Timer_control"] + i] & 1) == 1)
+                        {
+                            if (++Timers_ms_count[i] >= TimeBase[i])
+                            {
+                                DataValue.HoldingRegisters[Adreses["T4_c"] + i] += 1;
+                                Timers_ms_count[i] = 0;
+                            }
+                        }
+                        else
+                        {
+                            DataValue.HoldingRegisters[Adreses["T4_c"] + i] = 0;
+                        }
 
+                        if (DataValue.HoldingRegisters[Adreses["T4_c"] + i] >= DataValue.HoldingRegisters[Adreses["T4"] + i])
+                        {
+                            DataValue.HoldingRegisters[Adreses["Timer_control"] + i] |= 2;
+                        }
+                        if ((DataValue.HoldingRegisters[Adreses["Timer_control"] + i] & (1 | 2)) == 1)
+                        {
+                            DataValue.HoldingRegisters[Adreses["Timer_control"] + i] |= 4;
+                        }
+                        else DataValue.HoldingRegisters[Adreses["Timer_control"] + i] &= 0b011;
+                    }
+                }
+                Thread.Sleep(10);
+            }
         }
 
         /// <summary>
@@ -313,7 +327,28 @@ namespace ModbasServer
         /// </summary>
         public void SetData()
         {
-            Thread.Sleep(100);
+            string[] buf;
+            //Thread.Sleep(100);
+            for (int i = 0; i < TextRangs.Length; i++)
+            {
+                if (TextRangs[i].Contains("TON"))
+                {
+                    buf = TextRangs[i].Split(' ');
+                    for(int el = 0; el < buf.Length; el++)
+                    {
+                        if (buf[el] == "TON")
+                        {
+                            int st = int.Parse(buf[el+1].Split(":")[1]);
+                            TimeBase[st] = (int)(double.Parse(buf[el + 2].Replace('.',',')) * 100)!=0? (int)(double.Parse(buf[el + 2].Replace('.', ',')) * 100): 1;
+                            DataValue.HoldingRegisters[Adreses["T4"] + st] = ushort.Parse(buf[el + 3]);
+                            DataValue.HoldingRegisters[Adreses["T4_c"] + st] = ushort.Parse(buf[el + 4]);
+                            break;
+                        }
+                    }
+                }
+            }
+            buf = null;
+
             BeginInvoke(new MethodInvoker(() =>
             {
                 StartStop.BackColor = Color.Red;
@@ -322,7 +357,7 @@ namespace ModbasServer
 
                 listlog.Items.Add("Server started");
             }));
-
+            //TONupdate.Enabled = true;
             while (!start_stop)
             {
                 int num = 1;
@@ -735,7 +770,7 @@ namespace ModbasServer
             short CountBranch = 0;
             bool ONS = false;
 
-            for (int i = 0; i < rang_text.Length; i++)
+            for (int i = 0; i < rang_text.Length; i++)//Test(1).ldf ONS не работат
             {
                 string el = rang_text[i];
                 if (el == "BST")
@@ -770,15 +805,19 @@ namespace ModbasServer
                             i++;
                             break;
                         case "ONS"://ONS после него ранг истин, если его адрес перешёл в 1 (соб_бит = ист_л)(0->1)[дальше можно не идти]
-                            bool bit = GetAdresBit(rang_text[i + 1]);
+                            bool bit = GetAdresBit(rang_text[i + 1]);   
                             if (ist != Convert.ToInt16(bit))
                             {
                                 SetAdresBit(rang_text[i + 1], (byte)ist);
+                                bit = GetAdresBit(rang_text[i + 1]);
                                 if (Convert.ToInt16(bit) == 1) ist = 1;
                             }
                             i++;
                             break;
                         case "TON":
+                            if (ist == 1) DataValue.HoldingRegisters[Adreses["Timer_control"] + int.Parse(rang_text[i + 1].Split(':')[1])] |= 1;
+                            else
+                                DataValue.HoldingRegisters[Adreses["Timer_control"] + int.Parse(rang_text[i + 1].Split(':')[1])] = 0;
                             i += 4;
                             break;
                         case "MOV":
@@ -970,10 +1009,10 @@ namespace ModbasServer
                 else if (el == "NXB")
                 {
                     short[] info = InsnensBranch(_Rangs, CountBranch, i, _ist);
-                    if (info[1] == 0) return info;
                     ist = (short)(info[0] | ist);
                     i = info[2];
                     CountBranch = info[1];
+                    if (info[1] == 0) return new short[] { ist, info[1], (short)i };
                     continue;
                 }
                 else if (el == "BND")
@@ -990,16 +1029,16 @@ namespace ModbasServer
                     switch (el)
                     {
                         case "OTE"://OTE если ранг истина, в указанный адрес 1, иначе 0
-                            if (_ist == 1) SetAdresBit(_Rangs[i + 1], 1);
+                            if ((_ist & ist) == 1) SetAdresBit(_Rangs[i + 1], 1);
                             else SetAdresBit(_Rangs[i + 1], 0);
                             i++;
                             break;
                         case "OTL"://OTL если ранг истина, в указанный адрес 1
-                            if (_ist == 1) SetAdresBit(_Rangs[i + 1], 1);
+                            if ((_ist & ist) == 1) SetAdresBit(_Rangs[i + 1], 1);
                             i++;
                             break;
                         case "OTU"://OTU если ранг истина, в указанный адрес 0
-                            if (_ist == 1) SetAdresBit(_Rangs[i + 1], 0);
+                            if ((_ist & ist) == 1) SetAdresBit(_Rangs[i + 1], 0);
                             i++;
                             break;
                         case "ONS"://ONS после него ранг истин, если его адрес перешёл в 1 (соб_бит = ист_л)(0->1)[дальше можно не идти]
@@ -1007,11 +1046,16 @@ namespace ModbasServer
                             if (_ist != Convert.ToInt16(bit))
                             {
                                 SetAdresBit(_Rangs[i + 1], (byte)_ist);
+                                bit = GetAdresBit(_Rangs[i + 1]);
                                 if (Convert.ToInt16(bit) == 1) ist = 1;
                             }
                             i++;
                             break;
                         case "TON":
+                            if ((_ist & ist) == 1) DataValue.HoldingRegisters[Adreses["Timer_control"] + int.Parse(_Rangs[i + 1].Split(':')[1])] |= 1;
+                            else
+                                DataValue.HoldingRegisters[Adreses["Timer_control"] + int.Parse(_Rangs[i + 1].Split(':')[1])] = 0;
+                            ist = (short)(_ist & ist);
                             i += 4;
                             break;
                         case "MOV":
@@ -1196,7 +1240,7 @@ namespace ModbasServer
                 {
                     Bitmask = 1;
                     ind_1 = int.Parse(k[0]);
-                    adr = Timer_control[ind_1];
+                    adr = DataValue.HoldingRegisters[Adreses["Timer_control"] + ind_1];
 
                     if ((adr & Bitmask) == Bitmask) return true;
                     return false;
@@ -1205,7 +1249,7 @@ namespace ModbasServer
                 {
                     Bitmask = 2;
                     ind_1 = int.Parse(k[0]);
-                    adr = Timer_control[ind_1];
+                    adr = DataValue.HoldingRegisters[Adreses["Timer_control"] + ind_1];
 
                     if ((adr & Bitmask) == Bitmask) return true;
                     return false;
@@ -1214,7 +1258,7 @@ namespace ModbasServer
                 {
                     Bitmask = 4;
                     ind_1 = int.Parse(k[0]);
-                    adr = Timer_control[ind_1];
+                    adr = DataValue.HoldingRegisters[Adreses["Timer_control"] + ind_1];
 
                     if ((adr & Bitmask) == Bitmask) return true;
                     return false;

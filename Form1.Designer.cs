@@ -28,7 +28,6 @@
         /// </summary>
         private void InitializeComponent()
         {
-            components = new System.ComponentModel.Container();
             panel1 = new Panel();
             tabControl1 = new TabControl();
             tabPage1 = new TabPage();
@@ -66,7 +65,6 @@
             IP_1 = new TextBox();
             saveFileDialog1 = new SaveFileDialog();
             openFileDialog1 = new OpenFileDialog();
-            TONupdate = new System.Windows.Forms.Timer(components);
             panel1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -448,11 +446,6 @@
             // 
             openFileDialog1.FileName = "openFileDialog1";
             // 
-            // TONupdate
-            // 
-            TONupdate.Interval = 10;
-            TONupdate.Tick += TONupdate_Tick;
-            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -519,6 +512,5 @@
         private TextBox IP_4;
         private TextBox IP_3;
         private TextBox IP_2;
-        private System.Windows.Forms.Timer TONupdate;
     }
 }

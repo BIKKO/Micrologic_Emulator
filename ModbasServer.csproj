@@ -6,7 +6,16 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <StartupObject>ModbasServer.Program</StartupObject>
+    <AssemblyName>Micrologic Emulator</AssemblyName>
+    <ApplicationIcon>ico.ico</ApplicationIcon>
+    <Version>0.5.15</Version>
+    <Description>Эмулятор Micrologic </Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="ico.ico" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="NModbus4" Version="3.0.0-alpha2" />
