@@ -224,27 +224,34 @@ namespace ModbasServer
                                     };
 
                                 TonDeta.Name = "Timer";
-
-                                if (Location.Text.Contains("ldf"))
+                                try
                                 {
-                                    Data = CreateFile.GetData(Location.Text);
-                                    SetFDataToDatMB();
-                                    TextRangs = CreateFile.Load(Location.Text, Type.RANG);
-                                    Tegs = CreateFile.GetTegs(Location.Text);
+                                    if (Location.Text.Contains("ldf"))
+                                    {
+                                        Data = CreateFile.GetData(Location.Text);
+                                        SetFDataToDatMB();
+                                        TextRangs = CreateFile.Load(Location.Text, Type.RANG);
+                                        Tegs = CreateFile.GetTegs(Location.Text);
+                                    }
+                                    else
+                                    {
+                                        TextRangs = File.ReadAllLines(Location.Text);
+                                    }
+
+                                    ListenThred.Start();
+                                    GenerateData.Start();
+                                    TonDeta.Start();
+
+                                    start_stop = !start_stop;
+
+                                    transfer(TextRangs);
+                                    //IsnensRangs(TextRangs[0]);
                                 }
-                                else
+                                catch
                                 {
-                                    TextRangs = File.ReadAllLines(Location.Text);
+                                    comboBox1.SelectedIndex = comboBox1.Items.Count-1;
+                                    tabControl1.SelectedIndex = 1;
                                 }
-                                
-                                ListenThred.Start();
-                                GenerateData.Start();
-                                TonDeta.Start();
-
-                                start_stop = !start_stop;
-
-                                transfer(TextRangs);
-                                //IsnensRangs(TextRangs[0]);
                             }
                             break;
                         }
@@ -258,6 +265,7 @@ namespace ModbasServer
         /// </summary>
         private void SetFDataToDatMB()
         {
+            bool addnew = false;
             string[] datakey = Data.Keys.ToArray();
             foreach (string key in datakey)
             {
@@ -265,12 +273,13 @@ namespace ModbasServer
                 {
                     if (!Adreses.ContainsKey(key))
                     {
-                        var mbox = MessageBox.Show($"Имя {key} нет в таблице регистров.\nДобавить?", "Не известное имя", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                        var mbox = MessageBox.Show($"Имя {key} нет в таблице регистров.\nДобавить?", "Неизвестное имя", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                         if (mbox == DialogResult.Yes)
                         {
                             Adreses.Add(key, 1);
                             comboBox1.Items.Add(key);
                             DataValue.HoldingRegisters[Adreses[key] + index] = Data[key][index];
+                            addnew = true;
                         }
                         else if (mbox == DialogResult.No)
                         {
@@ -281,6 +290,7 @@ namespace ModbasServer
                         DataValue.HoldingRegisters[Adreses[key] + index] = Data[key][index];
                 }
             }
+            if(addnew && MessageBox.Show("Необходима настройка новых имен", "", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) throw new Exception();
         }
 
         /// <summary>
@@ -1452,9 +1462,10 @@ namespace ModbasServer
         {
             if (comboBox1.SelectedItem.ToString() == "Расположение рангов") return;
             Adreses.Remove(comboBox1.SelectedItem.ToString());
+            int index = comboBox1.SelectedIndex;
             comboBox1.Items.Remove(comboBox1.SelectedItem);
             AdresUpdate.Clear();
-            comboBox1.SelectedIndex = 0;
+            comboBox1.SelectedIndex = index % comboBox1.Items.Count;
 
             Save();
         }
