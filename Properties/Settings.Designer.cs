@@ -58,5 +58,17 @@ namespace ModbasServer.Properties {
                 this["AdresName"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1001")]
+        public int ConfigAdr {
+            get {
+                return ((int)(this["ConfigAdr"]));
+            }
+            set {
+                this["ConfigAdr"] = value;
+            }
+        }
     }
 }

@@ -11,5 +11,8 @@
     <Setting Name="AdresName" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="ConfigAdr" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1001</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

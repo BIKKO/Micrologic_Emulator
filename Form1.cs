@@ -4,6 +4,8 @@ using Modbus.Device;
 using Modbus.Data;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
+using System.Xml.Linq;
+using System.Windows.Forms;
 
 
 namespace ModbasServer
@@ -12,7 +14,9 @@ namespace ModbasServer
     {
         private bool start_stop = true;
         private DataStore DataValue;
+        private DataStore VoidData;
         private DataStore[] DataRangs;// переделать на Dictionary
+        private DataStore[] CfgRangs;
         private ModbusSlave mb_tcp_server;
         private Thread ListenThred;
         private Thread GenerateData;
@@ -33,6 +37,8 @@ namespace ModbasServer
         private int Bitmask = 0;
         private int ind_1;
         private int adr;
+        private int ConfigAdr;
+        private Dictionary<string, byte> DataType;
 
 
         public Form1()
@@ -48,9 +54,10 @@ namespace ModbasServer
                                                         {"B3",7201},
                                                         };
 
-            string[] name = Properties.Settings.Default["AdresName"].ToString().Split(",");
-            string[] adr = Properties.Settings.Default["Adres"].ToString().Split(",");
-            RangAdr = int.Parse(Properties.Settings.Default["Rang"].ToString());
+            string[] name = Properties.Settings.Default.AdresName.Split(",");
+            string[] adr = Properties.Settings.Default.Adres.Split(",");
+            RangAdr = Properties.Settings.Default.Rang;
+            ConfigAdr = Properties.Settings.Default.ConfigAdr;
 
             if (name.Length > 1)
             {
@@ -63,8 +70,10 @@ namespace ModbasServer
             label1.Text = "";
 
             DataValue = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
+            VoidData = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
 
             comboBox1.Items.Add("Расположение рангов");
+            comboBox1.Items.Add("Конфигурация");
             comboBox1.Items.AddRange(Adreses.Keys.ToArray());
             comboBox1.SelectedIndex = 0;
             IP = new byte[] { 0, 0, 0, 0 };
@@ -74,6 +83,21 @@ namespace ModbasServer
             textBox2.PlaceholderText = Port.ToString();
             textBox3.PlaceholderText = Slave.ToString();
 
+            DataType = new Dictionary<string, byte> 
+            {
+                {"B", 1 },
+                {"T", 2 },
+                {"C", 3 },
+                {"R", 4 },
+                {"N", 5 },
+                {"F", 6 },
+                {"S", 7 },
+                {"L", 8 },
+                {"MG", 9 },
+                {"RI", 10 },
+                {"T_c", 11 },
+                {"Timer_control", 12 },
+            };
         }
 
 
@@ -87,13 +111,15 @@ namespace ModbasServer
             DataRangs = new DataStore[TextRangs.Length];
             string line;
             DataStore rang;
+            int count;
+            ushort temp;
             //текст ранга
             for (int ind_Rang = 0; ind_Rang < TextRangs.Length; ind_Rang++)
             {
-                int count = 8001 + ind_Rang;
+                count = RangAdr + ind_Rang;
                 line = TextRangs[ind_Rang];
                 rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
-                ushort temp = 0;
+                temp = 0;
                 for (int i = 0; i < 240;)
                 {
                     if (line[i] != 0 && i < line.Length)
@@ -111,6 +137,32 @@ namespace ModbasServer
                     if (i == line.Length) break;
                 }
                 DataRangs[ind_Rang] = rang;
+            }
+
+            CfgRangs = new DataStore[Adreses.Count];
+            string name;
+            string _type;
+            rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
+            rang.HoldingRegisters[ConfigAdr] = 0xffff;
+            rang.HoldingRegisters[ConfigAdr+1] = (ushort)RangAdr;
+            CfgRangs[0] = rang;
+            for (int ind = 1; ind < Adreses.Count; ++ind)
+            {
+                count = ConfigAdr + ind;
+                rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
+
+                name = Adreses.Keys.ToArray()[ind];
+                _type = new Regex(@"\d{1,2}").Replace(name,"");
+
+                temp = (ushort)(DataType[_type] << 8);
+                if(name != "Timer_control" && name != "T4_c")
+                    temp |= ushort.Parse(name.Replace(_type, ""));
+
+                rang.HoldingRegisters[count] = temp;
+                rang.HoldingRegisters[count+1] = (ushort)(Adreses[name]-1);
+                rang.HoldingRegisters[count+2] = (ushort)Data[name].Length;
+
+                CfgRangs[ind] = rang;
             }
         }
 
@@ -206,7 +258,7 @@ namespace ModbasServer
                                     };
 
                                 GenerateData.Name = "SetData";
-                                
+
                                 if (TonDeta == null)
                                     TonDeta = new Thread(() =>
                                     {
@@ -249,7 +301,7 @@ namespace ModbasServer
                                 }
                                 catch
                                 {
-                                    comboBox1.SelectedIndex = comboBox1.Items.Count-1;
+                                    comboBox1.SelectedIndex = comboBox1.Items.Count - 1;
                                     tabControl1.SelectedIndex = 1;
                                 }
                             }
@@ -290,7 +342,7 @@ namespace ModbasServer
                         DataValue.HoldingRegisters[Adreses[key] + index] = Data[key][index];
                 }
             }
-            if(addnew && MessageBox.Show("Необходима настройка новых имен", "", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) throw new Exception();
+            if (addnew && MessageBox.Show("Необходима настройка новых имен", "", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK) throw new Exception();
         }
 
         /// <summary>
@@ -359,12 +411,12 @@ namespace ModbasServer
                 if (TextRangs[i].Contains("TON"))
                 {
                     buf = TextRangs[i].Split(' ');
-                    for(int el = 0; el < buf.Length; el++)
+                    for (int el = 0; el < buf.Length; el++)
                     {
                         if (buf[el] == "TON")
                         {
-                            int st = int.Parse(buf[el+1].Split(":")[1]);
-                            TimeBase[st] = (int)(double.Parse(buf[el + 2].Replace('.',',')) * 100)!=0? (int)(double.Parse(buf[el + 2].Replace('.', ',')) * 100): 1;
+                            int st = int.Parse(buf[el + 1].Split(":")[1]);
+                            TimeBase[st] = (int)(double.Parse(buf[el + 2].Replace('.', ',')) * 100) != 0 ? (int)(double.Parse(buf[el + 2].Replace('.', ',')) * 100) : 1;
                             DataValue.HoldingRegisters[Adreses["T4"] + st] = ushort.Parse(buf[el + 3]);
                             DataValue.HoldingRegisters[Adreses["T4_c"] + st] = ushort.Parse(buf[el + 4]);
                             break;
@@ -830,7 +882,7 @@ namespace ModbasServer
                             i++;
                             break;
                         case "ONS"://ONS после него ранг истин, если его адрес перешёл в 1 (соб_бит = ист_л)(0->1)[дальше можно не идти]
-                            bool bit = GetAdresBit(rang_text[i + 1]);   
+                            bool bit = GetAdresBit(rang_text[i + 1]);
                             if (ist != Convert.ToInt16(bit))
                             {
                                 SetAdresBit(rang_text[i + 1], (byte)ist);
@@ -862,7 +914,7 @@ namespace ModbasServer
                                     SetAdresValue(rang_text[i + 2], DataValue.HoldingRegisters[Adreses[name] + str]);
                                 }
                             }
-                                i += 2;
+                            i += 2;
                             break;
                         case "ADD"://A+B=C
                             if (ist == 1)
@@ -1000,7 +1052,7 @@ namespace ModbasServer
                     }
                 }
             }
-             
+
 #if DEBUG
             Debug.Print(ist == 1 ? "истин" : "ложен");
 #endif
@@ -1373,7 +1425,7 @@ namespace ModbasServer
                 }
             }
         }
-        
+
         /// <summary>
         /// Установить значение бита
         /// </summary>
@@ -1402,15 +1454,31 @@ namespace ModbasServer
                 //if (listlog.Items.Count > 14) listlog.Items.Remove(listlog.Items[0]);
                 listlog.SelectedIndex = listlog.Items.Count - 1;
             }));
-
-            if (((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) / 1000 == 8) && (e.Message.FunctionCode == 3))
+            if (e.Message.SlaveAddress < 5)
             {
-                if ((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100 < DataRangs.Length && (e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100 >= 0)
-                    mb_tcp_server.DataStore = DataRangs[(e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100];
-                else
-                    mb_tcp_server.DataStore = DataValue;
+                // Регистры
+                if (((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) / 1000 == RangAdr / 1000) && (e.Message.FunctionCode == 3))
+                {
+                    if ((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100 < DataRangs.Length && (e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100 >= 0)
+                        mb_tcp_server.DataStore = DataRangs[(e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100];
+                    else
+                        mb_tcp_server.DataStore = DataValue;
+                }
+                else if (DataRangs.Contains(mb_tcp_server.DataStore)) mb_tcp_server.DataStore = DataValue;
             }
-            else if (DataRangs.Contains(mb_tcp_server.DataStore)) mb_tcp_server.DataStore = DataValue;
+            else
+            {
+                // Конфигурация
+                if (((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) / 1000 == ConfigAdr / 1000) && (e.Message.FunctionCode == 3))
+                {
+                    if ((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100 < CfgRangs.Length && (e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100 >= 0)
+                        mb_tcp_server.DataStore = CfgRangs[(e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) % 100];
+                    else
+                        mb_tcp_server.DataStore = VoidData;
+                }
+                else if (DataRangs.Contains(mb_tcp_server.DataStore)) mb_tcp_server.DataStore = VoidData;
+            }
+
         }
 
         /// <summary>
@@ -1449,6 +1517,10 @@ namespace ModbasServer
                 RangAdr = int.Parse(AdresUpdate.Text) + 1;
                 return;
             }
+            else if (comboBox1.SelectedItem.ToString() == "Конфигурация")
+            {
+                ConfigAdr = int.Parse(AdresUpdate.Text) + 1;
+            }
             Adreses[comboBox1.SelectedItem.ToString()] = int.Parse(AdresUpdate.Text) + 1;
             Save();
         }
@@ -1479,8 +1551,15 @@ namespace ModbasServer
         {
             if (comboBox1.SelectedItem.ToString() == "Расположение рангов")
             {
-                Delete.Enabled = false;
+                if (Delete.Enabled) Delete.Enabled = false;
                 AdresUpdate.Text = (RangAdr - 1).ToString();
+                AdresUpdate.Focus();
+                return;
+            }
+            else if (comboBox1.SelectedItem.ToString() == "Конфигурация")
+            {
+                if (Delete.Enabled) Delete.Enabled = false;
+                AdresUpdate.Text = (ConfigAdr - 1).ToString();
                 AdresUpdate.Focus();
                 return;
             }
@@ -1504,9 +1583,10 @@ namespace ModbasServer
         /// </summary>
         private void Save()
         {
-            Properties.Settings.Default["Rang"] = RangAdr;
-            Properties.Settings.Default["Adres"] = string.Join(",", Adreses.Values.ToArray());
-            Properties.Settings.Default["AdresName"] = string.Join(",", Adreses.Keys.ToArray());
+            Properties.Settings.Default.Rang = RangAdr;
+            Properties.Settings.Default.Adres = string.Join(",", Adreses.Values.ToArray());
+            Properties.Settings.Default.AdresName = string.Join(",", Adreses.Keys.ToArray());
+            Properties.Settings.Default.ConfigAdr = ConfigAdr;
 
             Properties.Settings.Default.Save();
         }
@@ -1679,6 +1759,74 @@ namespace ModbasServer
                             IP_1.Focus();
                             break;
                         }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Выгрузить регистры с именами
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void UPload_Click(object sender, EventArgs e)
+        {
+            string _data = "";
+
+            _data += "RANDS:"+(RangAdr-1) + "\n";
+            _data += "CONFIG:"+(ConfigAdr-1) + "\n";
+
+            foreach (string key in Adreses.Keys)
+            {
+                 _data += key + ":" + (Adreses[key] - 1) + ';' + Data[key].Length + "\n";
+            }
+            saveFileDialog1.InitialDirectory = Location.Text;
+            saveFileDialog1.RestoreDirectory = true;
+            saveFileDialog1.Filter = "ModBus config (*.MBcfg)|*.MBcfg";
+            if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                CreateFile.ToFile(saveFileDialog1.FileName, _data);
+            }
+        }
+
+        /// <summary>
+        /// Загрузить регистры с именами
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void Load_Click(object sender, EventArgs e)
+        {
+            openFileDialog1.Filter = "ModBus config (*.MBcfg)|*.MBcfg";
+            if(openFileDialog1.ShowDialog() ==DialogResult.OK)
+            {
+                string[] _data = File.ReadAllLines(openFileDialog1.FileName).Where(x => x!="").ToArray();
+                string[] buf;
+                var mbres = MessageBox.Show("Заменить имеющиеся данные на полученные из файла?","Внимание!",MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if(mbres == DialogResult.Yes)
+                {
+                    RangAdr = int.Parse(_data[0].Split(':')[1])+1;
+                    ConfigAdr = int.Parse(_data[1].Split(':')[1])+1;
+                    Adreses.Clear();
+                    for (int i = 2; i < _data.Length; i++)
+                    {
+                        buf = _data[i].Split(":");
+                        Adreses.Add(buf[0], int.Parse(buf[1])+1);
+                    }
+                    comboBox1.Items.Clear();
+                    comboBox1.Items.Add("Расположение рангов");
+                    comboBox1.Items.Add("Конфигурация");
+                    comboBox1.Items.AddRange(Adreses.Keys.ToArray());
+                }
+                else if (mbres == DialogResult.No)
+                {
+                    for (int i = 2; i < _data.Length; i++)
+                    {
+                        buf = _data[i].Split(":");
+                        if (!Adreses.ContainsKey(buf[0]))
+                        {
+                            Adreses.Add(buf[0], int.Parse(buf[1]) + 1);
+                            comboBox1.Items.Add(buf[0]);
+                        }
+                    }
                 }
             }
         }

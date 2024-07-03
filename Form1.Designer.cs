@@ -65,6 +65,8 @@
             IP_1 = new TextBox();
             saveFileDialog1 = new SaveFileDialog();
             openFileDialog1 = new OpenFileDialog();
+            UPload = new Button();
+            Load = new Button();
             panel1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -214,9 +216,9 @@
             groupBox1.Controls.Add(label3);
             groupBox1.Controls.Add(label2);
             groupBox1.Dock = DockStyle.Bottom;
-            groupBox1.Location = new Point(3, 160);
+            groupBox1.Location = new Point(3, 171);
             groupBox1.Name = "groupBox1";
-            groupBox1.Size = new Size(360, 228);
+            groupBox1.Size = new Size(360, 217);
             groupBox1.TabIndex = 5;
             groupBox1.TabStop = false;
             groupBox1.Text = "Добавление";
@@ -275,6 +277,8 @@
             // 
             // groupBox2
             // 
+            groupBox2.Controls.Add(Load);
+            groupBox2.Controls.Add(UPload);
             groupBox2.Controls.Add(DoneUpdete);
             groupBox2.Controls.Add(AdresUpdate);
             groupBox2.Controls.Add(Delete);
@@ -446,6 +450,26 @@
             // 
             openFileDialog1.FileName = "openFileDialog1";
             // 
+            // UPload
+            // 
+            UPload.Location = new Point(68, 132);
+            UPload.Name = "UPload";
+            UPload.Size = new Size(115, 29);
+            UPload.TabIndex = 4;
+            UPload.Text = "Выгрузить";
+            UPload.UseVisualStyleBackColor = true;
+            UPload.Click += UPload_Click;
+            // 
+            // Load
+            // 
+            Load.Location = new Point(191, 132);
+            Load.Name = "Load";
+            Load.Size = new Size(115, 29);
+            Load.TabIndex = 5;
+            Load.Text = "Загрузить";
+            Load.UseVisualStyleBackColor = true;
+            Load.Click += Load_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -512,5 +536,7 @@
         private TextBox IP_4;
         private TextBox IP_3;
         private TextBox IP_2;
+        private Button Load;
+        private Button UPload;
     }
 }
