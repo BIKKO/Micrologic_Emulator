@@ -244,7 +244,7 @@ namespace ModbasServer
                                 start_stop = !start_stop;
 
                                 transfer(TextRangs);
-                                IsnensRangs(TextRangs[0]);
+                                //IsnensRangs(TextRangs[0]);
                             }
                             break;
                         }
@@ -263,7 +263,22 @@ namespace ModbasServer
             {
                 for (int index = 0; index < Data[key].Length; index++)
                 {
-                    DataValue.HoldingRegisters[Adreses[key] + index] = Data[key][index];
+                    if (!Adreses.ContainsKey(key))
+                    {
+                        var mbox = MessageBox.Show($"Имя {key} нет в таблице регистров.\nДобавить?", "Не известное имя", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                        if (mbox == DialogResult.Yes)
+                        {
+                            Adreses.Add(key, 1);
+                            comboBox1.Items.Add(key);
+                            DataValue.HoldingRegisters[Adreses[key] + index] = Data[key][index];
+                        }
+                        else if (mbox == DialogResult.No)
+                        {
+                            break;
+                        }
+                    }
+                    else
+                        DataValue.HoldingRegisters[Adreses[key] + index] = Data[key][index];
                 }
             }
         }
@@ -756,7 +771,7 @@ namespace ModbasServer
 
             MnemonicCod[CulckFlag] |= CULCK_LOGIC_MNEMON;
             Debug.Print("fffff");
-        }
+        }//Временно не используется
 
         /// <summary>
         /// Проверка истиности ранга
