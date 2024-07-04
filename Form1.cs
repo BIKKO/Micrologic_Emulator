@@ -139,19 +139,19 @@ namespace ModbasServer
                 DataRangs[ind_Rang] = rang;
             }
 
-            CfgRangs = new DataStore[Adreses.Count];
+            CfgRangs = new DataStore[Adreses.Count+1];
             string name;
             string _type;
             rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
             rang.HoldingRegisters[ConfigAdr] = 0xffff;
-            rang.HoldingRegisters[ConfigAdr+1] = (ushort)RangAdr;
+            rang.HoldingRegisters[ConfigAdr+1] = (ushort)(RangAdr-1);
             CfgRangs[0] = rang;
-            for (int ind = 1; ind < Adreses.Count; ++ind)
+            for (int ind = 1; ind < Adreses.Count+1; ++ind)
             {
                 count = ConfigAdr + ind;
                 rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
 
-                name = Adreses.Keys.ToArray()[ind];
+                name = Adreses.Keys.ToArray()[ind-1];
                 _type = new Regex(@"\d{1,2}").Replace(name,"");
 
                 temp = (ushort)(DataType[_type] << 8);
@@ -449,7 +449,7 @@ namespace ModbasServer
                 }
             }
         }
-
+        /*
         private void RangsInfo(string Text)
         {
             string[] com_str = Text.Trim().Split(' ');
@@ -834,7 +834,7 @@ namespace ModbasServer
             MnemonicCod[CulckFlag] |= CULCK_LOGIC_MNEMON;
             Debug.Print("fffff");
         }//Временно не используется
-
+        */
         /// <summary>
         /// Проверка истиности ранга
         /// </summary>
@@ -1451,7 +1451,7 @@ namespace ModbasServer
             BeginInvoke(new MethodInvoker(() =>
             {
                 listlog.Items.Add(e.Message);
-                //if (listlog.Items.Count > 14) listlog.Items.Remove(listlog.Items[0]);
+                if (listlog.Items.Count > 14) listlog.Items.Remove(listlog.Items[0]);
                 listlog.SelectedIndex = listlog.Items.Count - 1;
             }));
             if (e.Message.SlaveAddress < 5)
