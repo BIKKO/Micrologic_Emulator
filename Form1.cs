@@ -953,6 +953,168 @@ namespace ModbasServer
                             }
                             i += 3;
                             break;
+                        case "GEQ":
+                            if (ushort.TryParse(rang_text[i + 2], out u))
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(rang_text[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] >= int.Parse(rang_text[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = rang_text[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u >= DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "GRT":
+                            if (ushort.TryParse(rang_text[i + 2], out u))
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(rang_text[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] > int.Parse(rang_text[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = rang_text[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u > DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "EQU":
+                            if (ushort.TryParse(rang_text[i + 2], out u))
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(rang_text[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] == int.Parse(rang_text[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = rang_text[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u == DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "NEQ":
+                            if (ushort.TryParse(rang_text[i + 2], out u))
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(rang_text[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] != int.Parse(rang_text[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = rang_text[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u != DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "LES":
+                            if (ushort.TryParse(rang_text[i + 2], out u))
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(rang_text[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] < int.Parse(rang_text[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = rang_text[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u < DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "LEQ":
+                            if (ushort.TryParse(rang_text[i + 2], out u))
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(rang_text[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] <= int.Parse(rang_text[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = rang_text[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = rang_text[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u <= DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
                         case "DIV"://Ц/Ц=Ц
                             if (ist == 1)
                             {
@@ -1052,7 +1214,6 @@ namespace ModbasServer
                     }
                 }
             }
-
 #if DEBUG
             Debug.Print(ist == 1 ? "истин" : "ложен");
 #endif
@@ -1191,6 +1352,168 @@ namespace ModbasServer
                                 }
                             }
                             i += 3;
+                            break;
+                        case "GEQ":
+                            if (ushort.TryParse(_Rangs[i + 2], out u))
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(_Rangs[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] >= int.Parse(_Rangs[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = _Rangs[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u >= DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "GRT":
+                            if (ushort.TryParse(_Rangs[i + 2], out u))
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(_Rangs[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] > int.Parse(_Rangs[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = _Rangs[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u > DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "EQU":
+                            if (ushort.TryParse(_Rangs[i + 2], out u))
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(_Rangs[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] == int.Parse(_Rangs[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = _Rangs[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u == DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "NEQ":
+                            if (ushort.TryParse(_Rangs[i + 2], out u))
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(_Rangs[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] != int.Parse(_Rangs[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = _Rangs[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u != DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "LES":
+                            if (ushort.TryParse(_Rangs[i + 2], out u))
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(_Rangs[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] < int.Parse(_Rangs[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = _Rangs[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u < DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
+                            break;
+                        case "LEQ":
+                            if (ushort.TryParse(_Rangs[i + 2], out u))
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+                                //SetAdresValue(_Rangs[i + 3], (ushort)(u + DataValue.HoldingRegisters[Adreses[name] + str]));
+                                if (DataValue.HoldingRegisters[Adreses[name] + str] <= int.Parse(_Rangs[i + 2])) ist = 1;
+                                else ist = 0;
+                            }
+                            else
+                            {
+                                buf = _Rangs[i + 1].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                u = DataValue.HoldingRegisters[Adreses[name] + str];
+
+                                buf = _Rangs[i + 2].Split(':');
+                                name = buf[0];
+                                str = int.Parse(buf[1]);
+
+                                if (u <= DataValue.HoldingRegisters[Adreses[name] + str]) ist = 1;
+                                else ist = 0;
+                            }
+                            i += 2;
                             break;
                         case "DIV"://Ц/Ц=Ц
                             if (ist == 1)
@@ -1809,7 +2132,7 @@ namespace ModbasServer
                     for (int i = 2; i < _data.Length; i++)
                     {
                         buf = _data[i].Split(":");
-                        Adreses.Add(buf[0], int.Parse(buf[1])+1);
+                        Adreses.Add(buf[0], int.Parse(buf[1].Split(";")[0])+1);
                     }
                     comboBox1.Items.Clear();
                     comboBox1.Items.Add("Расположение рангов");
@@ -1823,7 +2146,7 @@ namespace ModbasServer
                         buf = _data[i].Split(":");
                         if (!Adreses.ContainsKey(buf[0]))
                         {
-                            Adreses.Add(buf[0], int.Parse(buf[1]) + 1);
+                            Adreses.Add(buf[0], int.Parse(buf[1].Split(";")[0]) + 1);
                             comboBox1.Items.Add(buf[0]);
                         }
                     }

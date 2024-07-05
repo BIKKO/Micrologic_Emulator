@@ -9,7 +9,7 @@
     <StartupObject>ModbasServer.Program</StartupObject>
     <AssemblyName>Micrologic Emulator</AssemblyName>
     <ApplicationIcon>ico.ico</ApplicationIcon>
-    <Version>0.5.15</Version>
+    <Version>0.5.32</Version>
     <Description>Эмулятор Micrologic </Description>
   </PropertyGroup>
 
