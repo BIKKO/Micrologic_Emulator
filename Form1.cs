@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Xml.Linq;
 using System.Windows.Forms;
+using System.Diagnostics.Metrics;
+using LogixForms.HelperClasses;
 
 
 namespace ModbasServer
@@ -15,6 +17,7 @@ namespace ModbasServer
         private bool start_stop = true;
         private DataStore DataValue;
         private DataStore VoidData;
+        private DataStore NewRangData;
         private DataStore[] DataRangs;// переделать на Dictionary
         private DataStore[] CfgRangs;
         private ModbusSlave mb_tcp_server;
@@ -38,12 +41,14 @@ namespace ModbasServer
         private int ind_1;
         private int adr;
         private int ConfigAdr;
+        private int SaveaNewRang;
         private Dictionary<string, byte> DataType;
 
 
         public Form1()
         {
             InitializeComponent();
+
             Adreses = new Dictionary<string, int>() { {"T4",1301},
                                                         {"T4_c",7001},
                                                         {"Timer_control",6801},
@@ -58,6 +63,8 @@ namespace ModbasServer
             string[] adr = Properties.Settings.Default.Adres.Split(",");
             RangAdr = Properties.Settings.Default.Rang;
             ConfigAdr = Properties.Settings.Default.ConfigAdr;
+            SaveaNewRang = Properties.Settings.Default.SaveaNewRang;
+            NewRangData = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
 
             if (name.Length > 1)
             {
@@ -82,8 +89,9 @@ namespace ModbasServer
 
             textBox2.PlaceholderText = Port.ToString();
             textBox3.PlaceholderText = Slave.ToString();
+            //GetsNewRang = false;
 
-            DataType = new Dictionary<string, byte> 
+            DataType = new Dictionary<string, byte>
             {
                 {"B", 1 },
                 {"T", 2 },
@@ -100,7 +108,6 @@ namespace ModbasServer
             };
         }
 
-
         /// <summary>
         /// Конвертация и запись в регистры текста программы
         /// </summary>
@@ -113,6 +120,7 @@ namespace ModbasServer
             DataStore rang;
             int count;
             ushort temp;
+            //List<ushort> sss = new List<ushort>();
             //текст ранга
             for (int ind_Rang = 0; ind_Rang < TextRangs.Length; ind_Rang++)
             {
@@ -133,34 +141,39 @@ namespace ModbasServer
                         i++;
                         rang.HoldingRegisters[count] = temp;
                         count++;
+                        //sss.Add(temp);
                     }
                     if (i == line.Length) break;
                 }
                 DataRangs[ind_Rang] = rang;
             }
 
-            CfgRangs = new DataStore[Adreses.Count+1];
+            CfgRangs = new DataStore[Adreses.Count + 1];
             string name;
             string _type;
             rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
             rang.HoldingRegisters[ConfigAdr] = 0xffff;
-            rang.HoldingRegisters[ConfigAdr+1] = (ushort)(RangAdr-1);
+            rang.HoldingRegisters[ConfigAdr + 1] = (ushort)(RangAdr - 1);
             CfgRangs[0] = rang;
-            for (int ind = 1; ind < Adreses.Count+1; ++ind)
+            for (int ind = 1; ind < Adreses.Count + 1; ++ind)
             {
                 count = ConfigAdr + ind;
                 rang = DataStoreFactory.CreateDefaultDataStore(0, 0, ushort.MaxValue, 0);
 
-                name = Adreses.Keys.ToArray()[ind-1];
-                _type = new Regex(@"\d{1,2}").Replace(name,"");
+                name = Adreses.Keys.ToArray()[ind - 1];
+                _type = new Regex(@"\d{1,2}").Replace(name, "");
 
                 temp = (ushort)(DataType[_type] << 8);
-                if(name != "Timer_control" && name != "T4_c")
+                if (name != "Timer_control" && name != "T4_c")
                     temp |= ushort.Parse(name.Replace(_type, ""));
 
                 rang.HoldingRegisters[count] = temp;
-                rang.HoldingRegisters[count+1] = (ushort)(Adreses[name]-1);
-                rang.HoldingRegisters[count+2] = (ushort)Data[name].Length;
+                rang.HoldingRegisters[count + 1] = (ushort)(Adreses[name] - 1);
+                try
+                {
+                    rang.HoldingRegisters[count + 2] = (ushort)Data[name].Length;
+                }
+                catch { }
 
                 CfgRangs[ind] = rang;
             }
@@ -449,392 +462,7 @@ namespace ModbasServer
                 }
             }
         }
-        /*
-        private void RangsInfo(string Text)
-        {
-            string[] com_str = Text.Trim().Split(' ');
-            int C_GROPE_MAX = 8;
-            int C_BRANCH_MAX = 16;
-            int[] BST_Num = new int[com_str.Length];
-            ushort[] MnemonicCod = new ushort[com_str.Length];
-            int BranchNum = 0;
-            int BST_Count = 0;
-            int BranchInGropeCount = 0;
-            int LogicGropeNum = 0;
-            int[] BranchInGropeMax = new int[8];
-            int[] BranchStart = new int[8];
-            int[,] BranchInGropeNumbers = new int[10, 8];
-            int[] BrunchCod = new int[32];
-            int[] BranchEnd = new int[C_BRANCH_MAX];
-            int CulckFlag = 0;
-            int OnsInRang;
-            int bn = 0;
 
-            ushort BRANCHes_MASK = 0x80CF;
-            ushort CULCK_LOGIC_MNEMON = 0x4000;
-            ushort NXB_RESET_MNEMON = 0x80C9;
-
-            ushort XIC_MNEMON = 0x8001; //логика НО
-            ushort XIO_MNEMON = 0x8002;//логика НЗ
-            ushort ONS_MNEMON = 0x8003;//по фронту
-
-            ushort OTE_MNEMON = 0x8010;//присвоение
-            ushort OTL_MNEMON = 0x8011;
-            ushort OTU_MNEMON = 0x8012;
-
-            ushort ADD_MNEMON = 0x8018; //сумма двух слов
-            ushort SUB_MNEMON = 0x8019;	//разность
-            ushort MOV_MNEMON = 0x801A; //присвоение
-
-            ushort BST_MNEMON = 0x8020; //начало первой ветви
-            ushort NXB_MNEMON = 0x8021; //начало другой ветви
-            ushort BND_MNEMON = 0x8022; //конец всех предыдущих ветвей
-
-            ushort EQU_MNEMON = 0x8040; //сравнение
-            ushort NEQ_MNEMON = 0x8041;
-            ushort LES_MNEMON = 0x8042;
-            ushort GRT_MNEMON = 0x8043;
-            ushort LEQ_MNEMON = 0x8044;
-            ushort GEQ_MNEMON = 0x8045;
-            ushort SCP_MNEMON = 0x801C;
-            ushort DIV_MNEMON = 0x8017;
-            ushort MUL_MNEMON = 0x8016;
-            ushort ABS_MNEMON = 0x801C;
-            ushort MSG_MNEMON = 0x8100;
-
-            ushort TON_MNEMON = 0x8080;	//включение таймера по фронту
-
-
-            for (; bn < com_str.Length; bn++)
-            {
-                if (com_str[bn] == "XIC")
-                {
-                    //vPrintDec("XIC ", 0); vPrintS("%s\n", com_str[k+1]);z
-                    MnemonicCod[bn] = XIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    //if(BranchNum==0)
-                    BranchEnd[BranchNum] = bn; //Оганичение на конфигурацию ветвей. Сначала линейный код, затем ветви.
-                    bn++;
-                    //GetBitAddr(com_str[bn], bn, RangNum);
-                    //	BRANCH_MASK
-                }
-                else if (com_str[bn] == "XIO")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = XIO_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //GetBitAddr(com_str[bn], bn, RangNum);
-                }
-                else if (com_str[bn] == "NEQ")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = NEQ_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-                }
-                else if (com_str[bn] == "EQU")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = EQU_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-                }
-                else if (com_str[bn] == "LES")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = LES_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-                }
-                else if (com_str[bn] == "GRT")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = GRT_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-                }
-                else if (com_str[bn] == "LEQ")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = LEQ_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-                }
-                else if (com_str[bn] == "GEQ")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = GEQ_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-                }
-                else if (com_str[bn] == "MOV")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = MOV_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "ABS")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = ABS_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //GetCompareAddr(bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "MUL")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = MUL_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //Get3Addr(bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "DIV")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = DIV_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //Get3Addr(bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "ADD")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = ADD_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //Get3Addr(bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "SUB")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = SUB_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //Get3Addr(bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "TON")
-                {
-                    //vPrintDec("XIO ", 0); vPrintS("%s\n", com_str[k+1]);
-                    MnemonicCod[bn] = TON_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //SetTimerCod(bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                    //bn+=3;
-                }
-                else if (com_str[bn] == "SCP")
-                {
-                    MnemonicCod[bn] = SCP_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //SetSCP_cod(bn, RangNum);
-                    //bn+=15; // SCP N10:13 0 20000 0 800 N10:14
-                }
-                else if (com_str[bn] == "MSG")
-                {
-                    MnemonicCod[bn] = MSG_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //SetMessCod(bn, RangNum);
-                    //bn+=15; //MSG MG12:19  16 LOCAL 101 192.168.10.13 N44:0 1801 RI9:0 2 22 0 SLOT:0 0 5 502
-                }
-                else if (com_str[bn] == "OTE")
-                {
-                    MnemonicCod[bn] = OTE_MNEMON;
-                    //if(CulckFlag)
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //Оганичение на конфигурацию ветвей. Сначала линейный код, затем ветви.
-                    bn++;
-                    //GetBitAddr(com_str[bn], bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "OTL")
-                {
-                    MnemonicCod[bn] = OTL_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //Оганичение на конфигурацию ветвей. Сначала линейный код, затем ветви.
-                    bn++;
-                    //GetBitAddr(com_str[bn], bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "OTU")
-                {
-                    MnemonicCod[bn] = OTU_MNEMON;
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    BranchEnd[BranchNum] = bn; //Оганичение на конфигурацию ветвей. Сначала линейный код, затем ветви.
-                    bn++;
-                    //GetBitAddr(com_str[bn], bn, RangNum);
-
-                    if (!Convert.ToBoolean(CulckFlag)) CulckFlag = bn;
-                }
-                else if (com_str[bn] == "ONS")
-                {
-                    MnemonicCod[bn] = ONS_MNEMON;
-                    //if(CulckFlag)
-                    MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    BrunchCod[bn] = BranchNum | (LogicGropeNum << 4);
-                    bn++;
-                    //GetBitAddr(com_str[bn], bn, RangNum);
-                }
-
-                else if (com_str[bn] == "BST")//branch start ///проверка на соответсятвие 
-                {
-                    BST_Count++;
-                    BST_Num[bn] = BST_Count; //запомнить в массиве BST_Num
-
-                    MnemonicCod[bn] = BST_MNEMON;
-                    if (Convert.ToBoolean(CulckFlag)) MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-
-                    BranchInGropeCount = 0; //счет ветвей сначала
-                    BranchInGropeMax[LogicGropeNum] = BranchInGropeCount;
-                    if (bn != 0) //не первый элемент в ранге
-                    {
-                        if ((MnemonicCod[0] == BST_MNEMON) && (bn == 1)) ; //первый элемент и второй в ранге
-                        else LogicGropeNum++;
-                    }
-                    BranchInGropeNumbers[LogicGropeNum, BranchInGropeCount] = BranchNum; //сохранить предыдущую номер ветви
-
-                    if (MnemonicCod[bn - 1] == BND_MNEMON) ;//BND предыдущий
-                    else
-                    {
-                        if (bn != 0) //не первый элемент в ранге
-                            BranchNum++;
-                    }
-                    BranchStart[BranchNum] = bn + 1; //next Rung_logic
-
-                }
-                else if (com_str[bn] == "NXB")//next branch ///проверка на соответсятвие 
-                {
-                    MnemonicCod[bn] = NXB_MNEMON;
-
-                    //найдем BST к которому относится NXB
-                    //задача - определить - эта ветвь основная (независимая) ? NXB_RESET_MNEMON или локальная
-                    int p, i, BND_Count, FindKey, FindPos = 0;
-
-                    p = bn - 1; //начнем с текущей позиции к началу
-                    FindKey = 0;
-                    BND_Count = 0;
-                    for (i = 0; i <= (bn - 1); i++, p--)
-                    {
-                        if ((MnemonicCod[p] & BRANCHes_MASK) == BND_MNEMON)
-                        {
-                            BND_Count++;
-                        }
-                        else if ((MnemonicCod[p] & BRANCHes_MASK) == BST_MNEMON)
-                        {
-                            if (BND_Count == 0)
-                            {
-                                if ((BST_Num[p] == 1) && (p == 0)) { FindKey = 1; FindPos = p; } //только номер 1 в позиции 0 укзывает на начало ранга
-                                break; //остановка при первом встречном BST
-                            }
-                            else BND_Count--; //пропустить парный c BND BST
-                        }
-                    }
-                    if (Convert.ToBoolean(FindKey))
-                        if (BST_Num[FindPos] == 1) //if(BST_Count == 1 ) //IndBranchNum++; //переход на след. ветвь т.к. это основное ветвление
-                            if (Convert.ToBoolean(CulckFlag)) //IndBranchNum++; //переход на след. ветвь т.к. вычисления уже прошли
-                            {
-                                MnemonicCod[bn] = NXB_RESET_MNEMON;
-
-                                //предыдущие параметры обнуляются
-                                CulckFlag = OnsInRang = 0;
-                                LogicGropeNum = 0;
-                                for (i = 0; i < C_BRANCH_MAX; i++) BranchInGropeMax[i] = 0;
-                                for (i = 0; i < C_GROPE_MAX * C_BRANCH_MAX; i++) BranchInGropeMax[i] = 0;
-                            }
-
-                    if (Convert.ToBoolean(CulckFlag)) MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-
-                    BranchInGropeNumbers[LogicGropeNum, BranchInGropeCount] = BranchNum; //сохранить предыдущую номер ветви
-
-                    if (MnemonicCod[bn] != NXB_RESET_MNEMON) //если не начало независимой ветви
-                        BranchInGropeCount++;
-                    BranchInGropeMax[LogicGropeNum] = BranchInGropeCount;
-
-                    BranchNum++;
-                    BranchStart[BranchNum] = bn + 1; //next Rung_logic
-                }
-
-                else if (com_str[bn] == "BND")// branch end ///проверка на соответсятвие 
-                {
-
-                    MnemonicCod[bn] = BND_MNEMON;
-                    if (Convert.ToBoolean(CulckFlag)) MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-
-                    BranchInGropeNumbers[LogicGropeNum, BranchInGropeCount] = BranchNum; //сохранить предыдущую номер ветви
-
-                    BranchInGropeMax[LogicGropeNum] = BranchInGropeCount;
-
-                    if (bn != (com_str.Length - 1))  //not lust element
-                    {
-                        BranchNum++;
-                        BranchStart[BranchNum] = bn + 1; //next Rung_logic
-                    }
-                }
-            }
-            CulckFlag--; //теперь указывает не на адресс, а на код
-
-            //поиск ветвей при выполнении и исключение их из расчета логики ранга
-            bn = CulckFlag - 1; //указывает на код ветвдения (возможно)
-
-            if ((MnemonicCod[com_str.Length - 1]) == BND_MNEMON)//если последняя группа ветвей (исполняемые ветви)
-                bn--;
-            for (; bn > 0; bn--)
-            {
-                if ((MnemonicCod[bn] & BST_MNEMON) == BST_MNEMON)
-                {
-                    if ((MnemonicCod[bn]) != NXB_RESET_MNEMON) MnemonicCod[bn] |= CULCK_LOGIC_MNEMON;
-                    break;
-                }
-
-            }
-
-            MnemonicCod[CulckFlag] |= CULCK_LOGIC_MNEMON;
-            Debug.Print("fffff");
-        }//Временно не используется
-        */
         /// <summary>
         /// Проверка истиности ранга
         /// </summary>
@@ -1764,6 +1392,90 @@ namespace ModbasServer
         }
 
         /// <summary>
+        /// Сохранение нового ранга
+        /// </summary>
+        private void SaveRang()
+        {
+            ushort pass = DataValue.HoldingRegisters[8201];
+
+            if (pass != 54321) return;
+
+                DataValue.HoldingRegisters[8201] = 0;
+
+            if (DataValue.HoldingRegisters[8600] != 0) return;
+
+            DataValue.HoldingRegisters[8600] = 0;
+
+            string g = DecodingWritesRegister();
+
+            string[] num_text = { "", "" };
+
+            num_text[0] = g.Substring(1, g.IndexOf(' ') - 1);
+            num_text[1] = g.Substring(g.IndexOf(' '));
+
+            TextRangs[int.Parse(num_text[0])] = num_text[1];
+            transfer(TextRangs);
+        }
+
+        /// <summary>
+        /// Расшифровка полученного ранга
+        /// </summary>
+        /// <returns>Новый ранг</returns>
+        private string DecodingWritesRegister()
+        {
+            ushort[] inputs = new ushort[240];
+
+            string g = "";
+            int len = 0;
+            int buf;
+
+            for (int i = 0; i < 240; i++)
+            {
+                if (DataValue.HoldingRegisters[SaveaNewRang + i] == 0) break;
+                inputs[i] = DataValue.HoldingRegisters[SaveaNewRang + i];
+            }
+
+            for (int i = 0; i < 240; i++)
+            {
+                if (inputs[i] != 0)
+                {
+                    buf = (inputs[i] & 0xff);
+                    if (buf != 0)
+                    {
+                        g += (char)((char)inputs[i] & 0xff);
+                        len++;
+                    }
+                    buf = (inputs[i] >> 8);
+                    if (buf != 0)
+                    {
+                        g += (char)((char)inputs[i] >> 8);
+                        len++;
+                    }
+                }
+                else break;
+            }
+
+            return g;
+        }
+
+        /// <summary>
+        /// Тестирование полученного рага
+        /// </summary>
+        private void TestNewRang()
+        {
+            CheckingTheCorrectness checking = new(100, 100, 100, CheckingType.Emulation);
+            Thread.Sleep(25);
+            string str_from_check = DecodingWritesRegister();
+
+            ushort result = (ushort)checking.CheckRangText(str_from_check);
+            DataValue.HoldingRegisters[8600] = result;
+
+            if (result != 0)
+                for (int regist = 8400; regist < 8600; regist++)
+                    DataValue.HoldingRegisters[regist] = 0;
+        }
+
+        /// <summary>
         /// Формирование ответа, в зависиости от полученного зпроса
         /// </summary>
         /// <param name="sender"></param>
@@ -1773,10 +1485,26 @@ namespace ModbasServer
             //(e.Message.MessageFrame -> byte[])ind:0 - SlaveID; ind:1 - FunCod; ind:2,3 - adres; ind:4,5 - len
             BeginInvoke(new MethodInvoker(() =>
             {
-                listlog.Items.Add(e.Message);
-                if (listlog.Items.Count > 14) listlog.Items.Remove(listlog.Items[0]);
-                listlog.SelectedIndex = listlog.Items.Count - 1;
+                string mess = e.Message + " " + e.Message.FunctionCode;
+                //if (listlog.Items.Count > 14) listlog.Items.Remove(listlog.Items[2]);
+                if (!listlog.Items.Contains(mess))
+                {
+                    listlog.Items.Add(mess);
+                    listlog.SelectedIndex = listlog.Items.Count - 1;
+                }
             }));
+            if (e.Message.FunctionCode == 16)
+            {
+                //mb_tcp_server.DataStore = NewRangData;
+                if ((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) / 100 == 82)
+                {
+                    new Thread(() => { SaveRang(); }).Start();
+                }
+                if ((e.Message.MessageFrame[2] * 256 + e.Message.MessageFrame[3]) / 100 == 84)
+                {
+                    new Thread(() => { TestNewRang(); }).Start();
+                }
+            }
             if (e.Message.SlaveAddress < 5)
             {
                 // Регистры
@@ -1788,6 +1516,7 @@ namespace ModbasServer
                         mb_tcp_server.DataStore = DataValue;
                 }
                 else if (DataRangs.Contains(mb_tcp_server.DataStore)) mb_tcp_server.DataStore = DataValue;
+
             }
             else
             {
@@ -1843,6 +1572,12 @@ namespace ModbasServer
             else if (comboBox1.SelectedItem.ToString() == "Конфигурация")
             {
                 ConfigAdr = int.Parse(AdresUpdate.Text) + 1;
+                return;
+            }
+            else if (comboBox1.SelectedItem.ToString() == "Запись ранга")
+            {
+                SaveaNewRang = int.Parse(AdresUpdate.Text) + 1;
+                return;
             }
             Adreses[comboBox1.SelectedItem.ToString()] = int.Parse(AdresUpdate.Text) + 1;
             Save();
@@ -1886,6 +1621,13 @@ namespace ModbasServer
                 AdresUpdate.Focus();
                 return;
             }
+            else if (comboBox1.SelectedItem.ToString() == "Запись ранга")
+            {
+                if (Delete.Enabled) Delete.Enabled = false;
+                AdresUpdate.Text = (SaveaNewRang - 1).ToString();
+                AdresUpdate.Focus();
+                return;
+            }
             if (!Delete.Enabled) Delete.Enabled = true;
             AdresUpdate.Text = (Adreses[comboBox1.SelectedItem.ToString()] - 1).ToString();
             AdresUpdate.Focus();
@@ -1910,6 +1652,7 @@ namespace ModbasServer
             Properties.Settings.Default.Adres = string.Join(",", Adreses.Values.ToArray());
             Properties.Settings.Default.AdresName = string.Join(",", Adreses.Keys.ToArray());
             Properties.Settings.Default.ConfigAdr = ConfigAdr;
+            Properties.Settings.Default.SaveaNewRang = SaveaNewRang;
 
             Properties.Settings.Default.Save();
         }
@@ -2095,12 +1838,13 @@ namespace ModbasServer
         {
             string _data = "";
 
-            _data += "RANDS:"+(RangAdr-1) + "\n";
-            _data += "CONFIG:"+(ConfigAdr-1) + "\n";
+            _data += "RANDS:" + (RangAdr - 1) + "\n";
+            _data += "CONFIG:" + (ConfigAdr - 1) + "\n";
+            _data += "SAVERANG:" + (SaveaNewRang - 1) + "\n";
 
             foreach (string key in Adreses.Keys)
             {
-                 _data += key + ":" + (Adreses[key] - 1) + ';' + Data[key].Length + "\n";
+                _data += key + ":" + (Adreses[key] - 1) + ';' + Data[key].Length + "\n";
             }
             saveFileDialog1.InitialDirectory = Location.Text;
             saveFileDialog1.RestoreDirectory = true;
@@ -2119,24 +1863,26 @@ namespace ModbasServer
         private void Load_Click(object sender, EventArgs e)
         {
             openFileDialog1.Filter = "ModBus config (*.MBcfg)|*.MBcfg";
-            if(openFileDialog1.ShowDialog() ==DialogResult.OK)
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
             {
-                string[] _data = File.ReadAllLines(openFileDialog1.FileName).Where(x => x!="").ToArray();
+                string[] _data = File.ReadAllLines(openFileDialog1.FileName).Where(x => x != "").ToArray();
                 string[] buf;
-                var mbres = MessageBox.Show("Заменить имеющиеся данные на полученные из файла?","Внимание!",MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if(mbres == DialogResult.Yes)
+                var mbres = MessageBox.Show("Заменить имеющиеся данные на полученные из файла?", "Внимание!", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (mbres == DialogResult.Yes)
                 {
-                    RangAdr = int.Parse(_data[0].Split(':')[1])+1;
-                    ConfigAdr = int.Parse(_data[1].Split(':')[1])+1;
+                    RangAdr = int.Parse(_data[0].Split(':')[1]) + 1;
+                    ConfigAdr = int.Parse(_data[1].Split(':')[1]) + 1;
+                    SaveaNewRang = int.Parse(_data[2].Split(':')[1]) + 1;
                     Adreses.Clear();
                     for (int i = 2; i < _data.Length; i++)
                     {
                         buf = _data[i].Split(":");
-                        Adreses.Add(buf[0], int.Parse(buf[1].Split(";")[0])+1);
+                        Adreses.Add(buf[0], int.Parse(buf[1].Split(";")[0]) + 1);
                     }
                     comboBox1.Items.Clear();
                     comboBox1.Items.Add("Расположение рангов");
                     comboBox1.Items.Add("Конфигурация");
+                    comboBox1.Items.Add("Запись ранга");
                     comboBox1.Items.AddRange(Adreses.Keys.ToArray());
                 }
                 else if (mbres == DialogResult.No)

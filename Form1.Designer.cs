@@ -48,6 +48,8 @@
             label3 = new Label();
             label2 = new Label();
             groupBox2 = new GroupBox();
+            Load = new Button();
+            UPload = new Button();
             DoneUpdete = new Button();
             AdresUpdate = new TextBox();
             Delete = new Button();
@@ -65,8 +67,6 @@
             IP_1 = new TextBox();
             saveFileDialog1 = new SaveFileDialog();
             openFileDialog1 = new OpenFileDialog();
-            UPload = new Button();
-            Load = new Button();
             panel1.SuspendLayout();
             tabControl1.SuspendLayout();
             tabPage1.SuspendLayout();
@@ -291,6 +291,26 @@
             groupBox2.TabStop = false;
             groupBox2.Text = "Редактирование";
             // 
+            // Load
+            // 
+            Load.Location = new Point(191, 132);
+            Load.Name = "Load";
+            Load.Size = new Size(115, 29);
+            Load.TabIndex = 5;
+            Load.Text = "Загрузить";
+            Load.UseVisualStyleBackColor = true;
+            Load.Click += Load_Click;
+            // 
+            // UPload
+            // 
+            UPload.Location = new Point(68, 132);
+            UPload.Name = "UPload";
+            UPload.Size = new Size(115, 29);
+            UPload.TabIndex = 4;
+            UPload.Text = "Выгрузить";
+            UPload.UseVisualStyleBackColor = true;
+            UPload.Click += UPload_Click;
+            // 
             // DoneUpdete
             // 
             DoneUpdete.Location = new Point(189, 99);
@@ -449,26 +469,6 @@
             // openFileDialog1
             // 
             openFileDialog1.FileName = "openFileDialog1";
-            // 
-            // UPload
-            // 
-            UPload.Location = new Point(68, 132);
-            UPload.Name = "UPload";
-            UPload.Size = new Size(115, 29);
-            UPload.TabIndex = 4;
-            UPload.Text = "Выгрузить";
-            UPload.UseVisualStyleBackColor = true;
-            UPload.Click += UPload_Click;
-            // 
-            // Load
-            // 
-            Load.Location = new Point(191, 132);
-            Load.Name = "Load";
-            Load.Size = new Size(115, 29);
-            Load.TabIndex = 5;
-            Load.Text = "Загрузить";
-            Load.UseVisualStyleBackColor = true;
-            Load.Click += Load_Click;
             // 
             // Form1
             // 

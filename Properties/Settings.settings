@@ -14,5 +14,8 @@
     <Setting Name="ConfigAdr" Type="System.Int32" Scope="User">
       <Value Profile="(Default)">1001</Value>
     </Setting>
+    <Setting Name="SaveaNewRang" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">8401</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
