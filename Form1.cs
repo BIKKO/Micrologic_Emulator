@@ -4,9 +4,6 @@ using Modbus.Device;
 using Modbus.Data;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
-using System.Xml.Linq;
-using System.Windows.Forms;
-using System.Diagnostics.Metrics;
 using LogixForms.HelperClasses;
 
 
